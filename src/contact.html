@@ -1,24 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Contact | Patrick Porter</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="css/styles.css">
-</head>
+    <head>
+        <meta charset="UTF-8">
+        <title>Contact | Patrick Porter</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
 
-<body class="bg-gray-50 text-gray-800">
+    <body class="bg-gray-50 text-gray-800">
+        <div id="navbar"></div>
+        <section class="min-h-screen flex items-center justify-center px-6">
+            <div class="w-full max-w-lg bg-white shadow-lg rounded-xl p-8">
 
-<div id="navbar"></div>
+                <h2 class="text-3xl font-bold mb-6 text-center">Contact Me</h2>
 
-<section class="py-20 text-center reveal">
-  <h2 class="text-3xl font-bold mb-6">Get In Touch</h2>
-  <p class="mb-4">rigamonk@gmail.com</p>
-</section>
+                <form id="contactForm" class="space-y-5">
 
-<script src="js/navbar.js"></script>
-<script src="js/main.js"></script>
+                    <!-- Name -->
+                    <div>
+                        <label class="block mb-2 font-semibold">Name</label>
+                        <input type="text"
+                            required
+                            class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
 
-</body>
+                    <!-- Email -->
+                    <div>
+                        <label class="block mb-2 font-semibold">Email</label>
+                        <input type="email"
+                            required
+                            class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+
+                    <!-- Message -->
+                    <div>
+                        <label class="block mb-2 font-semibold">Message</label>
+                        <textarea rows="4"
+                            required
+                            class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit"
+                        class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                        Send Message
+                    </button>
+
+                    <!-- Success Message -->
+                    <p id="successMessage"
+                        class="text-green-600 text-center hidden">
+                        Message submitted successfully!
+                    </p>
+
+                </form>
+
+            </div>
+        </section>
+
+        <script>
+  document.getElementById("contactForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+    document.getElementById("successMessage").classList.remove("hidden");
+    this.reset();
+  });
+</script>
+
+        <script src="js/navbar.js"></script> <!-- set to asynch -->
+        <script src="js/main.js"></script>
+    </body>
 </html>

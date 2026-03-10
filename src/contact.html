@@ -10,30 +10,31 @@
 
     <body class="bg-gray-50 text-gray-800">
         <div id="navbar"></div>
-        <div class="account-shell">
-            <section class="account-card">
+        <div class="container text-center">
+            <section class="min-h-screen flex items-center justify-center text-center px-6 reveal">
                 <div class="w-full max-w-lg bg-white shadow-lg rounded-xl p-8">
                     <h2 class="text-3xl font-bold mb-6 text-center">Contact
                         Me</h2>
+                        <br />
+                        If you have any questions, comments, or just want to say hello, feel free to reach out to me using the form below.
+                        <br /> I look forward to hearing from you!
+                        <br />
+                        <br />
                     <form action="https://api.web3forms.com/submit"
                         method="POST">
                         <p><input name="access_key" type="hidden"
                                 value="68060f41-d032-4f49-a134-07de628815cb" />
-                            <input style="width: 200px;" name="name" required
+                            <input class="form-input" name="name" required
                                 type="text" placeholder="Your Name" /></p>
-                        <p><br /> <input style="width: 200px;" name="email"
+                        <p><br /> <input class="form-input" name="email"
                                 required type="email"
                                 placeholder="Your Email" /></p>
-                        <p><br /> <textarea style="width: 200px;" name="message"
+                        <p><br /> <textarea class="form-input" name="message"
                                 required placeholder="Your Message"></textarea>
                             <p><br />
                                 <button type="submit" class="btn btn-secondary"">Submit</button>
-                        <div
-                            style="position: relative !important; height: 0px !important; width: 0px !important; display: initial !important; float: left !important;"
-                            data-lastpass-icon-root>&nbsp;</div>
-                        <div
-                            style="position: relative !important; height: 0px !important; width: 0px !important; display: initial !important; float: left !important;"
-                            data-lastpass-icon-root>&nbsp;</div>
+                        <div class="lastpass-icon" data-lastpass-icon-root>&nbsp;</div>
+                        <div class="lastpass-icon" data-lastpass-icon-root>&nbsp;</div>
                     </form></div>
             </section>
         </div>
@@ -46,6 +47,5 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
         <script src="js/navbar.js"></script> <!-- set to asynch -->
-        <script src="js/main.js"></script>
     </body>
 </html>

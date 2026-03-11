@@ -1,16 +1,109 @@
-/* Scroll Reveal Animation */
-.reveal {
-  opacity: 0;
-  transform: translateY(40px);
-  transition: all 0.8s ease;
-}
-
-.reveal.active {
-  opacity: 1;
-  transform: translateY(0);
-}
-
 /* Print Styles */
+body {
+  font-family: "Outfit", sans-serif;
+}
+
+.site-page {
+  min-height: 100vh;
+}
+
+.site-main {
+  flex: 1;
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.site-footer {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.profile-content {
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+.profile-image {
+  width: min(100%, 16rem);
+  height: auto;
+  margin-bottom: 1.5rem;
+}
+
+.profile-image--about {
+  width: min(100%, 18rem);
+}
+
+.profile-copy {
+  max-width: 36rem;
+  margin: 0 auto;
+}
+
+.profile-section,
+.content-section,
+.projects-section {
+  width: 100%;
+}
+
+.contact-card {
+  max-width: 42rem;
+}
+
+.content-copy {
+  max-width: 36rem;
+  margin: 0 auto;
+}
+
+.resume-embed {
+  width: 100%;
+  max-width: 48rem;
+  height: 70vh;
+  min-height: 31.25rem;
+}
+
+.navbar .nav-link.active {
+  font-weight: 600;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+@media (max-width: 575.98px) {
+  .site-main {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+
+  .profile-image {
+    width: min(72vw, 12rem);
+    margin-bottom: 1.25rem;
+  }
+
+  .profile-image--about {
+    width: min(78vw, 14rem);
+  }
+
+  .profile-copy {
+    max-width: 100%;
+  }
+
+  .content-copy {
+    max-width: 100%;
+  }
+
+  .contact-card {
+    padding: 1.5rem !important;
+  }
+
+  .resume-embed {
+    min-height: 24rem;
+    height: 60vh;
+  }
+}
+
 @media print {
   nav,
   .no-print {
@@ -25,4 +118,16 @@
   @page {
     margin: 1in;
   }
+  .outfit-normal {
+    font-family: "Outfit", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    font-style: normal;
+  }
+  .ceviche-one-regular {
+    font-family: "Ceviche One", system-ui;
+    font-weight: 400;
+    font-style: normal;
+  }
+
 }

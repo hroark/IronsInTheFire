@@ -1,31 +1,22 @@
 
-/* used to ensure navbar is tracking */
 document.addEventListener("DOMContentLoaded", function () {
+  fetch("partials/navbar.html")
+    .then((res) => res.text())
+    .then((data) => {
+      document.getElementById("navbar").innerHTML = data;
 
-    fetch("partials/navbar.html")
-      .then(res => res.text())
-      .then(data => {
-        document.getElementById("navbar").innerHTML = data;
-  
-        // Mobile toggle
-        const menuBtn = document.getElementById("menuBtn");
-        const mobileMenu = document.getElementById("mobileMenu");
-  
-        if (menuBtn) {
-          menuBtn.addEventListener("click", () => {
-            mobileMenu.classList.toggle("hidden");
-          });
+      const currentPage = window.location.pathname.split("/").pop() || "index.html";
+
+      document.querySelectorAll(".nav-link").forEach((link) => {
+        const isCurrentPage = link.getAttribute("href") === currentPage;
+
+        link.classList.toggle("active", isCurrentPage);
+
+        if (isCurrentPage) {
+          link.setAttribute("aria-current", "page");
+        } else {
+          link.removeAttribute("aria-current");
         }
-  
-        // Active link highlight
-        const currentPage = window.location.pathname.split("/").pop();
-        document.querySelectorAll(".nav-link").forEach(link => {
-          if (link.getAttribute("href") === currentPage) {
-            link.classList.add("text-blue-600", "font-semibold");
-          }
-        });
-  
       });
-  
-  });
-  
+    });
+});

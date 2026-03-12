@@ -11,40 +11,59 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 
-<body class="site-page bg-light text-dark d-flex flex-column">
+<body class="site-page d-flex flex-column">
 
 <div id="navbar"></div>
 
 <main class="site-main d-flex align-items-center">
-  <section class="projects-section container">
-    <h2 class="display-6 fw-bold text-center mb-5">Projects</h2>
+  <section class="page-shell">
+    <div class="content-panel mb-4 text-center text-lg-start">
+      <span class="eyebrow">Projects</span>
+      <h1 class="section-title">A few active builds and ideas in motion.</h1>
+      <p class="section-copy mb-0">
+        These projects reflect the kind of work I enjoy most: useful tools, clean interfaces,
+        and steady iteration from concept to something real.
+      </p>
+    </div>
 
     <div class="row g-4 justify-content-center">
-
       <div class="col-md-6 col-lg-5">
-        <div class="card h-100 shadow-sm">
-          <div class="card-body">
-            <h3 class="h4 card-title mb-3">Practice Buddy</h3>
-            <p class="card-text text-muted mb-4">
-              Music practice tracking app being built with Blazor.
-            </p>
-            <a href="https://github.com/hroark/PracticeBuddy" target="_blank" rel="noopener noreferrer" class="link-primary">Repository</a>
+        <article class="project-card">
+          <span class="card-kicker">Blazor App</span>
+          <h3 class="h2 mb-3">Practice Buddy</h3>
+          <p class="card-text mb-4">
+            A music practice tracking application focused on helping users build consistency,
+            review progress, and keep practice sessions intentional.
+          </p>
+          <div class="tag-list">
+            <span class="tag-chip">Blazor</span>
+            <span class="tag-chip">Productivity</span>
+            <span class="tag-chip">In Progress</span>
           </div>
-        </div>
+          <div class="project-actions">
+            <a href="https://github.com/hroark/PracticeBuddy" target="_blank" rel="noopener noreferrer" class="btn btn-brand-soft">View Repository</a>
+          </div>
+        </article>
       </div>
 
       <div class="col-md-6 col-lg-5">
-        <div class="card h-100 shadow-sm">
-          <div class="card-body">
-            <h3 class="h4 card-title mb-3">Irons in The Fire</h3>
-            <p class="card-text text-muted mb-4">
-              This page. Bootstrap, HTML, JavaScript.
-            </p>
-            <a href="https://github.com/hroark/IronsInTheFire" target="_blank" rel="noopener noreferrer" class="link-primary">Repository</a>
+        <article class="project-card">
+          <span class="card-kicker">Portfolio Site</span>
+          <h3 class="h2 mb-3">Irons in The Fire</h3>
+          <p class="card-text mb-4">
+            This portfolio itself: a lightweight static site built with HTML, CSS, Bootstrap,
+            and JavaScript, designed to evolve as new work takes shape.
+          </p>
+          <div class="tag-list">
+            <span class="tag-chip">HTML</span>
+            <span class="tag-chip">Bootstrap</span>
+            <span class="tag-chip">JavaScript</span>
           </div>
-        </div>
+          <div class="project-actions">
+            <a href="https://github.com/hroark/IronsInTheFire" target="_blank" rel="noopener noreferrer" class="btn btn-brand-soft">View Repository</a>
+          </div>
+        </article>
       </div>
-
     </div>
   </section>
 </main>

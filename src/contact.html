@@ -11,39 +11,56 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 
-<body class="site-page bg-light text-dark d-flex flex-column">
+<body class="site-page d-flex flex-column">
     <div id="navbar"></div>
 
     <main class="site-main d-flex align-items-center">
-        <div class="container text-center">
-            <section class="content-section d-flex align-items-center justify-content-center text-center">
-                <div class="contact-card w-100 bg-white shadow rounded p-4 p-md-5">
-                    <h2 class="display-6 fw-bold mb-4">Contact Me</h2>
-                    <p class="content-copy text-muted mb-4">
-                        If you have any questions, comments, or just want to say hello, feel free to reach out to me using the form below.
-                        <br />
-                        I look forward to hearing from you!
-                    </p>
-
-                    <form action="https://api.web3forms.com/submit" method="POST">
-                        <input name="access_key" type="hidden" value="68060f41-d032-4f49-a134-07de628815cb" />
-
-                        <p>
-                            <input class="form-input" name="name" required type="text" placeholder="Your Name" />
+        <section class="page-shell">
+            <div class="row g-4 align-items-stretch">
+                <div class="col-lg-5">
+                    <div class="content-panel h-100">
+                        <span class="eyebrow">Contact</span>
+                        <h1 class="section-title">Let’s talk.</h1>
+                        <p class="section-copy mb-0">
+                            If you have a question, a collaboration idea, or just want to connect,
+                            send a message here. I keep things straightforward and appreciate thoughtful conversations.
                         </p>
-                        <p>
-                            <input class="form-input" name="email" required type="email" placeholder="Your Email" />
-                        </p>
-                        <p>
-                            <textarea class="form-input" name="message" required placeholder="Your Message"></textarea>
-                        </p>
-                        <p>
-                            <button type="submit" class="btn btn-secondary">Submit</button>
-                        </p>
-                    </form>
+                        <ul class="contact-list">
+                            <li class="contact-item">Project ideas and portfolio feedback are always welcome.</li>
+                            <li class="contact-item">Use the form and I’ll get back to you as soon as I can.</li>
+                        </ul>
+                    </div>
                 </div>
-            </section>
-        </div>
+                <div class="col-lg-7">
+                    <section class="contact-card text-start">
+                        <h2 class="display-6 fw-bold mb-3">Send a Message</h2>
+                        <p class="contact-meta mb-4">
+                            Fill out the form below and your message will be sent directly to me.
+                        </p>
+
+                        <form action="https://api.web3forms.com/submit" method="POST" class="form-stack">
+                            <input name="access_key" type="hidden" value="68060f41-d032-4f49-a134-07de628815cb" />
+
+                            <label>
+                                <span class="form-label">Name</span>
+                                <input class="form-input" name="name" required type="text" placeholder="Your Name" />
+                            </label>
+                            <label>
+                                <span class="form-label">Email</span>
+                                <input class="form-input" name="email" required type="email" placeholder="you@example.com" />
+                            </label>
+                            <label>
+                                <span class="form-label">Message</span>
+                                <textarea class="form-input" name="message" required placeholder="Tell me a little about what’s on your mind."></textarea>
+                            </label>
+                            <div>
+                                <button type="submit" class="btn btn-brand">Submit</button>
+                            </div>
+                        </form>
+                    </section>
+                </div>
+            </div>
+        </section>
     </main>
 
     <footer class="site-footer text-center text-muted">

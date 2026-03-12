@@ -11,19 +11,57 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 
-<body class="site-page bg-light text-dark d-flex flex-column">
+<body class="site-page d-flex flex-column">
     <div id="navbar"></div>
 
     <main class="site-main d-flex align-items-center">
-        <section class="profile-section container text-center">
-            <div class="profile-content">
-                <img src="/src/images/Patrick.png" alt="Patrick Porter" class="profile-image profile-image--about img-fluid">
+        <section class="page-shell">
+            <div class="content-panel">
+                <div class="row align-items-center g-5">
+                    <div class="col-lg-5 text-center">
+                        <div class="hero-visual-card mx-auto">
+                            <img src="/src/images/Patrick.png" alt="Patrick Porter" class="profile-image profile-image--about img-fluid">
+                        </div>
+                    </div>
+                    <div class="col-lg-7">
+                        <span class="eyebrow">About Me</span>
+                        <h1 class="section-title">Building with curiosity and follow-through.</h1>
+                        <p class="section-copy mb-0">
+                            Hello, and welcome. I enjoy turning ideas into useful software, learning new tools with purpose,
+                            and refining details until both the code and the experience feel right. I care about clarity,
+                            reliability, and shipping work that solves real problems without unnecessary complexity.
+                        </p>
+                        <div class="skill-list">
+                            <span class="tag-chip">Modern web development</span>
+                            <span class="tag-chip">Practical problem solving</span>
+                            <span class="tag-chip">Continuous learning</span>
+                            <span class="tag-chip">User-focused design</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="profile-content">
-                <h1 class="display-5 fw-bold mb-4">About Me</h1>
-                <p class="profile-copy lead text-muted mb-4">
-                    Hello! I'm glad you stopped by to learn a little bit about me.
-                </p>
+
+            <div class="content-panel mt-4">
+                <div class="mini-card-grid">
+                    <article class="mini-card">
+                        <h3 class="h4 mb-3">How I Work</h3>
+                        <p class="mb-0 section-copy">
+                            I like straightforward architecture, readable code, and iterating until the solution feels durable.
+                        </p>
+                    </article>
+                    <article class="mini-card">
+                        <h3 class="h4 mb-3">What Drives Me</h3>
+                        <p class="mb-0 section-copy">
+                            New technologies are interesting when they unlock better solutions, not just when they are new.
+                        </p>
+                    </article>
+                    <article class="mini-card">
+                        <h3 class="h4 mb-3">What You’ll Find Here</h3>
+                        <p class="mb-0 section-copy">
+                            Projects in progress, a concise resume, and a clear path to get in touch if you want to connect.
+                        </p>
+                    </article>
+                </div>
             </div>
         </section>
     </main>

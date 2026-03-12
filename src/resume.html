@@ -12,24 +12,32 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 
-<body class="site-page bg-light text-dark d-flex flex-column">
+<body class="site-page d-flex flex-column">
 
   <div id="navbar"></div>
 
   <main class="site-main d-flex align-items-center">
-    <section class="content-section container text-center">
-      <h1 class="mb-4">My Resume</h1>
+    <section class="page-shell">
+      <div class="resume-panel text-center">
+        <span class="eyebrow">Resume</span>
+        <h1 class="section-title">Experience at a glance.</h1>
+        <p class="section-copy mx-auto mb-4">
+          View the embedded resume below, or print it directly from the page for a cleaner copy.
+        </p>
 
-      <embed
-        class="resume-embed"
-        src="../Patrick Porter Resume.pdf"
-        type="application/pdf"
-      />
+        <div class="resume-frame">
+          <embed
+            class="resume-embed"
+            src="../Patrick Porter Resume.pdf"
+            type="application/pdf"
+          />
+        </div>
 
-      <div class="no-print mt-4">
-        <button type="button" class="btn btn-outline-primary" onclick="window.print()">
-          Print Resume
-        </button>
+        <div class="no-print mt-4">
+          <button type="button" class="btn btn-brand-outline" onclick="window.print()">
+            Print Resume
+          </button>
+        </div>
       </div>
     </section>
   </main>

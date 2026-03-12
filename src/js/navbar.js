@@ -1,6 +1,9 @@
 
 document.addEventListener("DOMContentLoaded", function () {
-  fetch("partials/navbar.html")
+  const scriptUrl = new URL(document.currentScript?.src || "src/js/navbar.js", window.location.href);
+  const navbarUrl = new URL("../partials/navbar.html", scriptUrl);
+
+  fetch(navbarUrl)
     .then((res) => res.text())
     .then((data) => {
       document.getElementById("navbar").innerHTML = data;

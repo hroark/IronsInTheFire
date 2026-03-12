@@ -490,6 +490,21 @@ textarea.form-input {
   border-radius: 1rem;
 }
 
+.resume-print-container {
+  display: none;
+}
+
+.resume-print-page {
+  margin: 0 auto 1rem;
+  background: white;
+}
+
+.resume-print-page canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .site-footer {
   width: min(calc(100% - 2rem), var(--container-width));
   margin: 0 auto 1.5rem;
@@ -581,8 +596,17 @@ select {
 }
 
 @media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #navbar,
   nav,
-  .no-print {
+  .no-print,
+  .eyebrow,
+  .section-title,
+  .section-copy,
+  .site-footer {
     display: none !important;
   }
 
@@ -590,20 +614,62 @@ select {
   .site-page {
     background: white !important;
     color: black !important;
+    min-height: 0 !important;
+    overflow: visible !important;
   }
 
-  .site-footer,
+  .resume-print-container,
+  .resume-print-container * {
+    visibility: visible;
+  }
+
   .hero-panel,
   .content-panel,
   .resume-panel,
   .contact-card,
-  .project-card {
+  .project-card,
+  .resume-frame,
+  .page-shell,
+  .site-main {
     background: white !important;
     box-shadow: none !important;
     border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .resume-frame,
+  .resume-embed {
+    display: none !important;
+  }
+
+  .resume-print-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .resume-print-page {
+    break-after: page;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .resume-print-page:last-child {
+    break-after: auto;
+  }
+
+  .resume-print-page canvas {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   @page {
-    margin: 1in;
+    margin: 0;
   }
 }

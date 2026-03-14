@@ -36,7 +36,15 @@
                         </p>
 
                         <form action="https://api.web3forms.com/submit" method="POST" class="form-stack">
-                            <input name="access_key" type="hidden" value="68060f41-d032-4f49-a134-07de628815cb" />
+                            <!-- The real Web3Forms access_key should be injected at build/deploy time, not committed to source control -->
+                            <input name="access_key" type="hidden" value="YOUR_WEB3FORMS_ACCESS_KEY_HERE" />
+                            <!-- Honeypot field to help prevent automated spam submissions -->
+                            <div style="position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden;" aria-hidden="true">
+                                <label>
+                                    Do not fill this field if you are human:
+                                    <input type="text" name="botcheck" tabindex="-1" autocomplete="off">
+                                </label>
+                            </div>
 
                             <label>
                                 <span class="form-label">Name</span>

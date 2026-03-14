@@ -35,7 +35,7 @@ function loadNavbar() {
   const scriptUrl = getNavbarScriptUrl();
   const navbarUrl = new URL("../partials/navbar.html", scriptUrl);
 
-  fetch(navbarUrl, { cache: "no-store" })
+  fetch(navbarUrl)
     .then((res) => {
       if (!res.ok) {
         throw new Error(`Failed to load navbar: ${res.status}`);

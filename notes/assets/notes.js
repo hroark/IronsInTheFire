@@ -118,7 +118,7 @@
       })
         .then(function (response) { return response.json(); })
         .then(function (payload) {
-          if (payload && payload.title && linkTitle.value.trim() === "") {
+          if (payload && payload.title && linkTitle.value.trim() === "" && linkUrl.value.trim() === data.get("url")) {
             linkTitle.value = payload.title;
           }
         })

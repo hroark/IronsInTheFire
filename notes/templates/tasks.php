@@ -38,7 +38,7 @@ foreach ($taskNotes as $taskNote) {
                         <input type="hidden" name="id" value="<?= (int) $taskNote['id'] ?>">
                         <input type="hidden" name="task_index" value="<?= (int) $task['index'] ?>">
                         <input type="hidden" name="return" value="view=tasks">
-                        <button type="submit">
+                        <button type="submit" aria-pressed="<?= !empty($task['done']) ? 'true' : 'false' ?>">
                             <span class="task-box" aria-hidden="true"></span>
                             <span><?= e($task['text'] !== '' ? $task['text'] : 'Empty task') ?></span>
                         </button>

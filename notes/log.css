@@ -380,6 +380,14 @@
   display: none;
 }
 
+.log-journal-card {
+  max-width: 36rem;
+}
+
+.log-journal-card .section-title {
+  font-size: clamp(2rem, 4vw, 2.8rem);
+}
+
 @media (max-width: 900px) {
   .log-top,
   .log-editor-header,

@@ -38,6 +38,22 @@
     return lines.join("\n");
   }
 
+  function reconcileTaskToggle(currentMarkdown, submittedMarkdown, responseMarkdown, taskIndex) {
+    var normalize = function (markdown) {
+      return String(markdown).replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+    };
+    var currentLines = normalize(currentMarkdown);
+    var submittedTask = taskLines(normalize(submittedMarkdown))[taskIndex];
+    var responseTask = taskLines(normalize(responseMarkdown))[taskIndex];
+    var currentTask = taskLines(currentLines)[taskIndex];
+    if (!submittedTask || !responseTask || !currentTask ||
+        currentTask.match[2].toLowerCase() !== submittedTask.match[2].toLowerCase()) {
+      return currentMarkdown;
+    }
+    currentLines[currentTask.line] = currentTask.match[1] + "[" + responseTask.match[2] + "]" + currentTask.match[3];
+    return currentLines.join("\n");
+  }
+
   function csrf() {
     var meta = document.querySelector('meta[name="csrf-token"]');
     return meta ? meta.getAttribute("content") : "";
@@ -70,6 +86,7 @@
   var body = document.getElementById("note-body");
   var preview = document.getElementById("note-preview");
   var form = document.getElementById("note-form");
+  var taskUpdateQueue = Promise.resolve();
   if (body) {
     body.addEventListener("input", renderPreview);
     renderPreview();
@@ -89,28 +106,33 @@
         renderPreview();
         return;
       }
-      var data = new FormData();
-      data.set("action", "toggle-task");
-      data.set("csrf", csrf());
-      data.set("id", noteId);
-      data.set("task_index", String(index));
-      data.set("body", body.value);
-      fetch("index.php", {
-        method: "POST",
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-        body: data
-      })
-        .then(function (response) { return response.json(); })
-        .then(function (payload) {
-          if (payload && payload.ok && typeof payload.body === "string") {
-            body.value = payload.body;
-            renderPreview();
-          }
+      taskUpdateQueue = taskUpdateQueue.then(function () {
+        var submittedBody = body.value;
+        var data = new FormData();
+        data.set("action", "toggle-task");
+        data.set("csrf", csrf());
+        data.set("id", noteId);
+        data.set("task_index", String(index));
+        data.set("body", submittedBody);
+        return fetch("index.php", {
+          method: "POST",
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+          body: data
         })
-        .catch(function () {
-          body.value = toggleTaskLine(body.value, index);
-          renderPreview();
-        });
+          .then(function (response) { return response.json(); })
+          .then(function (payload) {
+            if (payload && payload.ok && typeof payload.body === "string") {
+              body.value = reconcileTaskToggle(body.value, submittedBody, payload.body, index);
+            } else {
+              body.value = toggleTaskLine(body.value, index);
+            }
+            renderPreview();
+          })
+          .catch(function () {
+            body.value = toggleTaskLine(body.value, index);
+            renderPreview();
+          });
+      });
     });
   }
 

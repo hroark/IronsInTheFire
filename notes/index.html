@@ -41,7 +41,7 @@
                 <div>
                     <span class="eyebrow">Private</span>
                     <h1 class="section-title">Log</h1>
-                    <p class="section-copy">Plain notes, markdown notes, and todo lists, saved in your database.</p>
+                    <p class="section-copy">Plain notes, markdown notes, todo lists, and an encrypted journal.</p>
                 </div>
                 <div class="log-top-actions">
                     <p id="save-state" class="log-save-state">Saved</p>
@@ -59,17 +59,19 @@
                             <button class="log-filter is-active" type="button" data-filter="all" aria-pressed="true">All 0</button>
                             <button class="log-filter" type="button" data-filter="note" aria-pressed="false">Notes 0</button>
                             <button class="log-filter" type="button" data-filter="todo" aria-pressed="false">Todos 0</button>
+                            <button class="log-filter" type="button" data-filter="journal" aria-pressed="false">Journal 0</button>
                         </div>
                         <div class="log-create">
                             <button id="new-note" class="btn btn-brand" type="button">New note</button>
                             <button id="new-todo" class="btn btn-brand-outline" type="button">New todo</button>
+                            <button id="new-journal" class="btn btn-brand-outline" type="button">New journal entry</button>
                         </div>
                     </div>
                     <div id="log-list" class="log-list" aria-live="polite"></div>
                     <p id="log-empty" class="log-empty">Nothing here yet. Create a note or a todo list.</p>
                     <details id="backup-panel" class="log-more">
                         <summary>Backup and passphrase</summary>
-                        <p class="log-hint">A backup is a JSON file of your notes and lists. Importing replaces what is currently in the database.</p>
+                        <p class="log-hint">A backup is a JSON file of your notes and lists. It does not include the journal. Importing replaces the notes and lists in the database. Deleting all entries leaves the encrypted journal in place.</p>
                         <div class="log-more-actions">
                             <button id="export-btn" class="btn btn-brand-outline btn-small" type="button">Download backup</button>
                             <button id="import-btn" class="btn btn-brand-outline btn-small" type="button">Import backup</button>
@@ -100,6 +102,7 @@
         </section>
     </main>
     <script src="markdown.js"></script>
+    <script src="journal.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -1,20 +1,39 @@
 (function () {
   var taskPattern = /^(\s*[-*+]\s+)\[([ xX])\](.*)$/;
 
-  function toggleTaskLine(markdown, taskIndex) {
-    var lines = String(markdown).replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-    var seen = 0;
+  function taskLines(lines) {
+    var tasks = [];
+    var fenceCharacter = null;
+    var fenceLength = 0;
     for (var i = 0; i < lines.length; i++) {
-      var match = lines[i].match(taskPattern);
-      if (!match) {
+      if (fenceCharacter !== null) {
+        var closingFence = new RegExp("^ {0,3}" + fenceCharacter + "{" + fenceLength + ",}[ \\t]*$");
+        if (closingFence.test(lines[i])) {
+          fenceCharacter = null;
+          fenceLength = 0;
+        }
         continue;
       }
-      if (seen === taskIndex) {
-        var mark = match[2].toLowerCase() === "x" ? " " : "x";
-        lines[i] = match[1] + "[" + mark + "]" + match[3];
-        break;
+      var fence = lines[i].match(/^ {0,3}(`{3,}|~{3,})/);
+      if (fence) {
+        fenceCharacter = fence[1].charAt(0);
+        fenceLength = fence[1].length;
+        continue;
       }
-      seen++;
+      var match = lines[i].match(taskPattern);
+      if (match) {
+        tasks.push({ line: i, match: match });
+      }
+    }
+    return tasks;
+  }
+
+  function toggleTaskLine(markdown, taskIndex) {
+    var lines = String(markdown).replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+    var task = taskLines(lines)[taskIndex];
+    if (task) {
+      var mark = task.match[2].toLowerCase() === "x" ? " " : "x";
+      lines[task.line] = task.match[1] + "[" + mark + "]" + task.match[3];
     }
     return lines.join("\n");
   }
@@ -36,9 +55,15 @@
       ADD_ATTR: ["checked", "disabled", "type"]
     });
     var boxes = preview.querySelectorAll('input[type="checkbox"]');
+    var tasks = taskLines(body.value.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n"));
     Array.prototype.forEach.call(boxes, function (box, index) {
       box.disabled = false;
-      box.setAttribute("data-task-index", String(index));
+      if (index < tasks.length) {
+        box.setAttribute("data-task-index", String(index));
+      } else {
+        box.disabled = true;
+        box.removeAttribute("data-task-index");
+      }
     });
   }
 

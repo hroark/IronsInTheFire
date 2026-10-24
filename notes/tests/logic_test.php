@@ -31,6 +31,11 @@ $toggled = toggle_task($markdown, 0);
 check(strpos($toggled, '- [x] Read') !== false && strpos($toggled, "keep\n") !== false, 'the first task flips without changing other lines');
 check(extract_tasks(toggle_task($toggled, 0))[0]['done'] === false, 'toggling again reopens the task');
 check(toggle_task($markdown, 9) === normalize_newlines($markdown), 'a missing task index leaves the note unchanged');
+$fencedMarkdown = "```md\n- [ ] Example\n```\n- [ ] Real task\n";
+$fencedTasks = extract_tasks($fencedMarkdown);
+check(count($fencedTasks) === 1 && $fencedTasks[0]['line'] === 3, 'tasks inside fenced code blocks are ignored');
+$fencedToggle = toggle_task($fencedMarkdown, 0);
+check(strpos($fencedToggle, "- [ ] Example") !== false && strpos($fencedToggle, "- [x] Real task") !== false, 'toggling a task leaves fenced examples unchanged');
 
 check(github_api_url('https://github.com/hroark/IronsInTheFire') === 'https://api.github.com/repos/hroark/IronsInTheFire', 'a repo URL becomes the repo API');
 check(github_api_url('https://github.com/hroark/IronsInTheFire/issues/12') === 'https://api.github.com/repos/hroark/IronsInTheFire/issues/12', 'an issue URL becomes the issue API');

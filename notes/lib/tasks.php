@@ -10,22 +10,47 @@ function task_pattern(): string
     return '/^(\s*[-*+]\s+)\[([ xX])\](.*)$/';
 }
 
-function extract_tasks(string $markdown): array
+function task_lines(string $markdown): array
 {
     $lines = preg_split("/\n/", normalize_newlines($markdown)) ?: [];
     $tasks = [];
-    $index = 0;
+    $fenceCharacter = null;
+    $fenceLength = 0;
     foreach ($lines as $lineNumber => $line) {
-        if (!preg_match(task_pattern(), $line, $matches)) {
+        if ($fenceCharacter !== null) {
+            $closingFence = '/^ {0,3}' . preg_quote($fenceCharacter, '/') . '{' . $fenceLength . ',}[ \t]*$/';
+            if (preg_match($closingFence, $line)) {
+                $fenceCharacter = null;
+                $fenceLength = 0;
+            }
             continue;
         }
+        if (preg_match('/^ {0,3}(`{3,}|~{3,})/', $line, $fence)) {
+            $fenceCharacter = $fence[1][0];
+            $fenceLength = strlen($fence[1]);
+            continue;
+        }
+        if (preg_match(task_pattern(), $line, $matches)) {
+            $tasks[] = [
+                'line' => $lineNumber,
+                'matches' => $matches,
+            ];
+        }
+    }
+    return $tasks;
+}
+
+function extract_tasks(string $markdown): array
+{
+    $tasks = [];
+    foreach (task_lines($markdown) as $index => $task) {
+        $matches = $task['matches'];
         $tasks[] = [
             'index' => $index,
-            'line' => $lineNumber,
+            'line' => $task['line'],
             'done' => strtolower($matches[2]) === 'x',
             'text' => trim($matches[3]),
         ];
-        $index++;
     }
     return $tasks;
 }
@@ -33,17 +58,13 @@ function extract_tasks(string $markdown): array
 function toggle_task(string $markdown, int $taskIndex): string
 {
     $lines = preg_split("/\n/", normalize_newlines($markdown)) ?: [];
-    $index = 0;
-    foreach ($lines as $lineNumber => $line) {
-        if (!preg_match(task_pattern(), $line, $matches)) {
-            continue;
-        }
+    foreach (task_lines($markdown) as $index => $task) {
         if ($index === $taskIndex) {
+            $matches = $task['matches'];
             $mark = strtolower($matches[2]) === 'x' ? ' ' : 'x';
-            $lines[$lineNumber] = $matches[1] . '[' . $mark . ']' . $matches[3];
+            $lines[$task['line']] = $matches[1] . '[' . $mark . ']' . $matches[3];
             break;
         }
-        $index++;
     }
     return implode("\n", $lines);
 }

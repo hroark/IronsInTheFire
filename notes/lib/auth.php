@@ -106,6 +106,9 @@ function save_sign_in_password(string $password): bool
         $statement = db()->prepare('INSERT INTO app_password (id, password_hash) VALUES (1, ?)');
         return $statement->execute([$hash]);
     } catch (PDOException $e) {
+        if ((string) ($e->errorInfo[1] ?? '') !== '1062') {
+            throw $e;
+        }
         return false;
     }
 }

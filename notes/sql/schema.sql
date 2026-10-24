@@ -65,3 +65,9 @@ CREATE TABLE IF NOT EXISTS link_tags (
 INSERT INTO notebooks (name, sort_order)
 SELECT 'Inbox', 0
 WHERE NOT EXISTS (SELECT 1 FROM notebooks);
+
+CREATE TABLE IF NOT EXISTS app_password (
+  id TINYINT UNSIGNED NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

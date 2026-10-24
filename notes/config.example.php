@@ -7,13 +7,15 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
 }
 
 // Copy this file to config.php and fill in the values.
-// Generate the password hash on the server:
-// php -r "echo password_hash('your-password', PASSWORD_DEFAULT), PHP_EOL;"
+// A .env file or folder is not required.
+// The database name is porter_notes. Leave that name as it is.
+// On the first visit, the notes page asks you to choose a sign-in password.
 
 return [
     'db' => [
-        'host' => 'localhost',
-        'name' => 'notes',
+        'host' => '127.0.0.1',
+        'port' => '3306',
+        'name' => 'porter_notes',
         'user' => 'notes',
         'pass' => '',
         'charset' => 'utf8mb4',

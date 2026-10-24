@@ -2,30 +2,62 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/guard.php';
+require_once __DIR__ . '/env.php';
 refuse_direct_access(__FILE__);
 
 function db(): PDO
 {
     static $pdo = null;
-    if ($pdo instanceof PDO) {
-        return $pdo;
+    if (!$pdo instanceof PDO) {
+        $config = config();
+        $db = is_array($config) ? ($config['db'] ?? []) : [];
+        $pdo = new PDO(mysql_dsn(is_array($db) ? $db : []), (string) ($db['user'] ?? ''), (string) ($db['pass'] ?? ''), [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
     }
-    $config = config();
-    $db = $config['db'] ?? [];
-    $charset = $db['charset'] ?? 'utf8mb4';
-    if (!preg_match('/^[a-z0-9]+$/', (string) $charset)) {
-        $charset = 'utf8mb4';
-    }
-    $dsn = sprintf(
-        'mysql:host=%s;dbname=%s;charset=%s',
-        $db['host'] ?? 'localhost',
-        $db['name'] ?? '',
-        $charset
-    );
-    $pdo = new PDO($dsn, (string) ($db['user'] ?? ''), (string) ($db['pass'] ?? ''), [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
+    ensure_notes_schema($pdo);
     return $pdo;
+}
+
+function ensure_notes_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $notesReady = false;
+    try {
+        $pdo->query('SELECT 1 FROM notebooks LIMIT 1');
+        $notesReady = true;
+    } catch (PDOException $e) {
+        $notesReady = false;
+    }
+    if (!$notesReady) {
+        $sql = file_get_contents(__DIR__ . '/../sql/schema.sql');
+        if (is_string($sql) && trim($sql) !== '') {
+            run_sql_script($pdo, $sql);
+        }
+    }
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS app_password (
+            id TINYINT UNSIGNED NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+    $ready = true;
+}
+
+function run_sql_script(PDO $pdo, string $sql): void
+{
+    $sql = preg_replace('/^\s*--.*$/m', '', $sql) ?? $sql;
+    foreach (preg_split('/;\s*(?:\n|$)/', $sql) as $statement) {
+        $statement = trim($statement);
+        if ($statement === '') {
+            continue;
+        }
+        $pdo->exec($statement);
+    }
 }

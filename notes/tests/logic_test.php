@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/lib/env.php';
 require dirname(__DIR__) . '/lib/helpers.php';
 require dirname(__DIR__) . '/lib/tasks.php';
 require dirname(__DIR__) . '/lib/github.php';
@@ -96,6 +97,15 @@ check(isset($entries['Inbox/Say-hello-3.md']), 'an active note is filed under it
 check(isset($entries['archive/Inbox/Old-4.md']), 'an archived note is filed under archive');
 check(isset($entries['Inbox/links.md']) && strpos($entries['Inbox/links.md'], 'https://example.com') !== false, 'links.md includes the saved URL');
 check(like_contains('100%_done') === '%100\\%\\_done%', 'search wildcards are escaped');
+
+$envText = "# comment\nMYSQL_HOST=127.0.0.1\nMYSQL_PORT=3306\nMYSQL_USER=notes\nMYSQL_PASSWORD=secret#29\nMYSQL_DATABASE=irondb\n";
+$parsed = config_from_env(read_env_text($envText));
+check(is_array($parsed) && $parsed['db']['name'] === 'porter_notes', 'the renamed database name is porter_notes');
+check(is_array($parsed) && $parsed['db']['pass'] === 'secret#29', 'a hash mark inside a password stays in the password');
+check(is_array($parsed) && mysql_dsn($parsed['db']) === 'mysql:host=127.0.0.1;port=3306;dbname=porter_notes;charset=utf8mb4', 'the MySQL port is included for 127.0.0.1');
+check(mysql_dsn(['host' => 'localhost', 'port' => '3306', 'name' => 'porter_notes']) === 'mysql:host=localhost;dbname=porter_notes;charset=utf8mb4', 'localhost keeps the default socket');
+check(config_from_env([]) === null, 'empty settings are not a configuration');
+check(notes_database_name('porter_notes') === 'porter_notes', 'porter_notes is kept as the database name');
 
 if ($failures > 0) {
     fwrite(STDERR, "{$failures} failed\n");

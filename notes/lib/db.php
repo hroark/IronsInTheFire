@@ -40,13 +40,20 @@ function ensure_notes_schema(PDO $pdo): void
             run_sql_script($pdo, $sql);
         }
     }
-    $pdo->exec(
-        'CREATE TABLE IF NOT EXISTS app_password (
-            id TINYINT UNSIGNED NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            PRIMARY KEY (id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
-    );
+    try {
+        $pdo->query('SELECT 1 FROM app_password LIMIT 1');
+    } catch (PDOException $e) {
+        if ((string) $e->getCode() !== '42S02') {
+            throw $e;
+        }
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS app_password (
+                id TINYINT UNSIGNED NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                PRIMARY KEY (id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+    }
     $ready = true;
 }
 

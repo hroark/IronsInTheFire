@@ -47,11 +47,13 @@ function sync_tags(PDO $pdo, string $kind, int $ownerId, string $raw): void
 
     $insertTag = $pdo->prepare('INSERT INTO tags (name) VALUES (?) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)');
     $link = $pdo->prepare('INSERT INTO ' . $table . ' (' . $column . ', tag_id) VALUES (?, ?)');
+    $linkedIds = [];
     foreach ($names as $name) {
         $insertTag->execute([$name]);
         $tagId = (int) $pdo->lastInsertId();
-        if ($tagId > 0) {
+        if ($tagId > 0 && !isset($linkedIds[$tagId])) {
             $link->execute([$ownerId, $tagId]);
+            $linkedIds[$tagId] = true;
         }
     }
 

@@ -33,6 +33,8 @@
 
   const dirty = new Set();
   const removed = new Set();
+  const sendingSaves = new Map();
+  const sendingDeletes = new Set();
   let persistChain = Promise.resolve();
 
   async function api(path, options) {
@@ -97,7 +99,7 @@
     if (!value || !Array.isArray(value.entries)) {
       throw new Error("That file is not a log backup.");
     }
-    return { entries: value.entries.map(normalizeEntry).filter(Boolean).slice(0, 500) };
+    return { entries: value.entries.map(normalizeEntry).filter(Boolean) };
   }
 
   function selectedEntry() {
@@ -136,9 +138,14 @@
     gatePassphrase.focus();
   }
 
-  function showApp() {
+  async function showApp() {
     gate.hidden = true;
     app.hidden = false;
+    try {
+      await loadJournalStatus();
+    } catch (error) {
+      journal.configured = false;
+    }
     render();
     searchInput.focus();
   }
@@ -212,24 +219,38 @@
     const deleteIds = [...removed];
     dirty.clear();
     removed.clear();
+    saveIds.forEach((id) => {
+      const entry = state.log.entries.find((candidate) => candidate.id === id);
+      if (entry) sendingSaves.set(id, JSON.parse(JSON.stringify(entry)));
+    });
+    deleteIds.forEach((id) => {
+      sendingSaves.delete(id);
+      sendingDeletes.add(id);
+    });
     if (!saveIds.length && !deleteIds.length) return;
     try {
       for (const id of deleteIds) {
         await api("/notes/api/entries/" + encodeURIComponent(id), { method: "DELETE" });
+        sendingDeletes.delete(id);
       }
       for (const id of saveIds) {
-        const entry = state.log.entries.find((candidate) => candidate.id === id);
-        if (!entry) continue;
+        const snapshot = sendingSaves.get(id);
+        if (!snapshot || sendingDeletes.has(id)) continue;
         await api("/notes/api/entries/" + encodeURIComponent(id), {
           method: "PUT",
-          body: JSON.stringify(entry)
+          body: JSON.stringify(snapshot)
         });
+        if (!dirty.has(id)) sendingSaves.delete(id);
       }
-      state.saving = dirty.size > 0 || removed.size > 0;
+      state.saving = dirty.size > 0 || removed.size > 0 || sendingSaves.size > 0 || sendingDeletes.size > 0;
       if (!state.saving) setSaveState("Saved");
     } catch (error) {
-      saveIds.forEach((id) => dirty.add(id));
-      deleteIds.forEach((id) => removed.add(id));
+      saveIds.forEach((id) => {
+        if (sendingSaves.has(id)) dirty.add(id);
+      });
+      deleteIds.forEach((id) => {
+        if (sendingDeletes.has(id)) removed.add(id);
+      });
       state.saving = false;
       setSaveState(error.message || "Could not save");
       throw error;
@@ -247,15 +268,452 @@
     await persistNow();
   }
 
+  const journal = {
+    configured: false,
+    entryCount: 0,
+    key: null,
+    entries: [],
+    dirty: new Set(),
+    removed: new Set(),
+    sending: new Set(),
+    timer: 0,
+    chain: Promise.resolve()
+  };
+
+  function journalEntry() {
+    return journal.entries.find((entry) => entry.id === state.selectedId) || null;
+  }
+
+  async function loadJournalStatus() {
+    const status = await api("/notes/api/journal");
+    journal.configured = Boolean(status.configured);
+    journal.entryCount = Number(status.entryCount) || 0;
+  }
+
+  function forgetJournal() {
+    window.clearTimeout(journal.timer);
+    journal.key = null;
+    journal.entries = [];
+    journal.dirty.clear();
+    journal.removed.clear();
+    journal.sending.clear();
+  }
+
+  async function sealJournalEntry(entry) {
+    const sealed = await JournalCrypto.encryptJson(journal.key, {
+      title: entry.title,
+      body: entry.body,
+      format: entry.format
+    });
+    await api("/notes/api/journal/entries/" + encodeURIComponent(entry.id), {
+      method: "PUT",
+      body: JSON.stringify({
+        iv: sealed.iv,
+        ciphertext: sealed.ciphertext,
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt
+      })
+    });
+  }
+
+  async function flushJournalOnce() {
+    if (!journal.key) return;
+    const saveIds = [...journal.dirty];
+    const deleteIds = [...journal.removed];
+    saveIds.forEach((id) => journal.sending.add(id));
+    deleteIds.forEach((id) => journal.sending.add(id));
+    journal.dirty.clear();
+    journal.removed.clear();
+    if (!saveIds.length && !deleteIds.length) return;
+    try {
+      for (const id of deleteIds) {
+        await api("/notes/api/journal/entries/" + encodeURIComponent(id), { method: "DELETE" });
+        journal.sending.delete(id);
+      }
+      for (const id of saveIds) {
+        const entry = journal.entries.find((candidate) => candidate.id === id);
+        if (!entry) {
+          journal.sending.delete(id);
+          continue;
+        }
+        await sealJournalEntry(entry);
+        if (!journal.dirty.has(id)) journal.sending.delete(id);
+      }
+      journal.entryCount = journal.entries.length;
+      state.saving =
+        journal.dirty.size > 0 ||
+        journal.removed.size > 0 ||
+        journal.sending.size > 0 ||
+        dirty.size > 0 ||
+        removed.size > 0 ||
+        sendingSaves.size > 0 ||
+        sendingDeletes.size > 0;
+      if (!state.saving) setSaveState("Saved");
+    } catch (error) {
+      saveIds.forEach((id) => {
+        if (journal.sending.has(id)) journal.dirty.add(id);
+      });
+      deleteIds.forEach((id) => {
+        if (journal.sending.has(id)) journal.removed.add(id);
+      });
+      state.saving = false;
+      setSaveState(error.message || "Could not save the journal");
+      throw error;
+    }
+  }
+
+  function persistJournal() {
+    const run = journal.chain.then(flushJournalOnce);
+    journal.chain = run.catch(() => {});
+    return run;
+  }
+
+  function scheduleJournalSave() {
+    state.saving = true;
+    setSaveState("Saving…");
+    window.clearTimeout(journal.timer);
+    journal.timer = window.setTimeout(() => persistJournal(), 280);
+  }
+
+  function markJournalDirty(entry) {
+    journal.removed.delete(entry.id);
+    journal.dirty.add(entry.id);
+    scheduleJournalSave();
+  }
+
+  async function settleJournal() {
+    window.clearTimeout(journal.timer);
+    await persistJournal();
+  }
+
+  async function openJournal(password) {
+    const seal = await api("/notes/api/journal/seal");
+    const key = await JournalCrypto.deriveKey(password, JournalCrypto.base64ToBytes(seal.salt), seal.iterations);
+    let check;
+    try {
+      check = await JournalCrypto.decryptJson(key, seal.verifierIv, seal.verifier);
+    } catch (error) {
+      throw new Error("That journal password is not right.");
+    }
+    if (!check || check.check !== JournalCrypto.CHECK) {
+      throw new Error("That journal password is not right.");
+    }
+    const stored = await api("/notes/api/journal/entries");
+    const entries = [];
+    for (const row of stored.entries) {
+      const payload = await JournalCrypto.decryptJson(key, row.iv, row.ciphertext);
+      entries.push({
+        id: row.id,
+        title: String(payload.title || "").slice(0, 160),
+        body: String(payload.body || ""),
+        format: payload.format === "markdown" ? "markdown" : "plain",
+        createdAt: Number(row.createdAt),
+        updatedAt: Number(row.updatedAt)
+      });
+    }
+    journal.key = key;
+    journal.entries = entries;
+    journal.entryCount = entries.length;
+    journal.configured = true;
+  }
+
+  async function createJournal(password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const key = await JournalCrypto.deriveKey(password, salt, JournalCrypto.ITERATIONS);
+    const verifier = await JournalCrypto.encryptJson(key, { check: JournalCrypto.CHECK });
+    await api("/notes/api/journal/seal", {
+      method: "PUT",
+      body: JSON.stringify({
+        iterations: JournalCrypto.ITERATIONS,
+        salt: JournalCrypto.bytesToBase64(salt),
+        verifierIv: verifier.iv,
+        verifier: verifier.ciphertext
+      })
+    });
+    journal.key = key;
+    journal.entries = [];
+    journal.entryCount = 0;
+    journal.configured = true;
+  }
+
+  async function changeJournalPassword(nextPassword) {
+    await settleJournal();
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const key = await JournalCrypto.deriveKey(nextPassword, salt, JournalCrypto.ITERATIONS);
+    const verifier = await JournalCrypto.encryptJson(key, { check: JournalCrypto.CHECK });
+    const entries = [];
+    for (const entry of journal.entries) {
+      const sealed = await JournalCrypto.encryptJson(key, {
+        title: entry.title,
+        body: entry.body,
+        format: entry.format
+      });
+      entries.push({
+        id: entry.id,
+        iv: sealed.iv,
+        ciphertext: sealed.ciphertext,
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt
+      });
+    }
+    await api("/notes/api/journal/rekey", {
+      method: "PUT",
+      body: JSON.stringify({
+        seal: {
+          iterations: JournalCrypto.ITERATIONS,
+          salt: JournalCrypto.bytesToBase64(salt),
+          verifierIv: verifier.iv,
+          verifier: verifier.ciphertext
+        },
+        entries
+      })
+    });
+    journal.key = key;
+  }
+
+  function addJournalEntry() {
+    const entry = {
+      id: createId(),
+      title: "",
+      body: "",
+      format: "plain",
+      createdAt: now(),
+      updatedAt: now()
+    };
+    journal.entries.unshift(entry);
+    journal.entryCount = journal.entries.length;
+    state.selectedId = entry.id;
+    state.confirmDeleteId = "";
+    state.editorKey = "";
+    state.filter = "journal";
+    markJournalDirty(entry);
+    render();
+  }
+
+  function journalGate(mode) {
+    const card = document.createElement("div");
+    card.className = "log-journal-card";
+    const title = document.createElement("h2");
+    title.className = "section-title";
+    title.textContent = mode === "create" ? "Start an encrypted journal" : "Unlock your journal";
+    const copy = document.createElement("p");
+    copy.className = "section-copy";
+    copy.textContent = mode === "create"
+      ? "Choose a journal password that is different from the log passphrase. Entries are encrypted in this browser, and the password is never saved or sent to the server."
+      : "This password is only for the diary. The log passphrase cannot open these entries.";
+    const form = document.createElement("form");
+    form.className = "form-stack";
+    form.dataset.journalAction = "journal-password";
+    form.dataset.mode = mode;
+    const passwordLabel = document.createElement("label");
+    passwordLabel.className = "form-label";
+    passwordLabel.htmlFor = "journal-password";
+    passwordLabel.textContent = "Journal password";
+    const password = document.createElement("input");
+    password.id = "journal-password";
+    password.className = "form-input";
+    password.type = "password";
+    password.autocomplete = mode === "create" ? "new-password" : "current-password";
+    password.minLength = 8;
+    password.required = true;
+    form.append(passwordLabel, password);
+    if (mode === "create") {
+      const confirmLabel = document.createElement("label");
+      confirmLabel.className = "form-label";
+      confirmLabel.htmlFor = "journal-password-confirm";
+      confirmLabel.textContent = "Confirm journal password";
+      const confirm = document.createElement("input");
+      confirm.id = "journal-password-confirm";
+      confirm.className = "form-input";
+      confirm.type = "password";
+      confirm.autocomplete = "new-password";
+      confirm.minLength = 8;
+      confirm.required = true;
+      form.append(confirmLabel, confirm);
+    }
+    const error = document.createElement("p");
+    error.id = "journal-error";
+    error.className = "log-error";
+    error.hidden = true;
+    const submit = document.createElement("button");
+    submit.className = "btn btn-brand";
+    submit.type = "submit";
+    submit.textContent = mode === "create" ? "Create journal" : "Unlock journal";
+    form.append(error, submit);
+    card.append(title, copy, form);
+    return card;
+  }
+
+  function renderJournalEntry(entry) {
+    const header = document.createElement("div");
+    header.className = "log-editor-header";
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "btn btn-brand-outline btn-small log-back";
+    back.dataset.action = "back";
+    back.textContent = "All entries";
+    const titleField = document.createElement("div");
+    titleField.className = "log-title-field";
+    const titleLabel = document.createElement("label");
+    titleLabel.htmlFor = "entry-title";
+    titleLabel.textContent = "Title";
+    const titleInput = document.createElement("input");
+    titleInput.id = "entry-title";
+    titleInput.className = "form-input log-entry-title";
+    titleInput.maxLength = 160;
+    titleInput.value = entry.title;
+    titleInput.placeholder = "Diary title";
+    titleField.append(titleLabel, titleInput);
+    const actions = document.createElement("div");
+    actions.className = "log-editor-actions";
+    const lock = document.createElement("button");
+    lock.type = "button";
+    lock.className = "btn btn-brand-outline btn-small";
+    lock.dataset.action = "lock-journal";
+    lock.textContent = "Lock journal";
+    actions.append(lock);
+    if (state.confirmDeleteId === entry.id) {
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "btn btn-brand-outline btn-small";
+      cancel.dataset.action = "cancel-delete";
+      cancel.textContent = "Keep";
+      const confirm = document.createElement("button");
+      confirm.type = "button";
+      confirm.className = "btn btn-danger btn-small";
+      confirm.dataset.action = "confirm-delete";
+      confirm.textContent = "Delete";
+      actions.append(cancel, confirm);
+    } else {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "btn btn-brand-outline btn-small";
+      remove.dataset.action = "delete-entry";
+      remove.textContent = "Delete";
+      actions.append(remove);
+    }
+    header.append(back, titleField, actions);
+    const note = renderNoteEditor(entry);
+    const passwordForm = document.createElement("form");
+    passwordForm.className = "form-stack log-journal-card";
+    passwordForm.dataset.journalAction = "change-journal-password";
+    passwordForm.innerHTML = "<p class=\"log-hint\">Changing the journal password re-encrypts every diary entry. The new password stays in this browser.</p>";
+    const nextLabel = document.createElement("label");
+    nextLabel.className = "form-label";
+    nextLabel.htmlFor = "journal-next-password";
+    nextLabel.textContent = "New journal password";
+    const next = document.createElement("input");
+    next.id = "journal-next-password";
+    next.className = "form-input";
+    next.type = "password";
+    next.autocomplete = "new-password";
+    next.minLength = 8;
+    next.required = true;
+    const againLabel = document.createElement("label");
+    againLabel.className = "form-label";
+    againLabel.htmlFor = "journal-next-password-confirm";
+    againLabel.textContent = "Confirm new journal password";
+    const again = document.createElement("input");
+    again.id = "journal-next-password-confirm";
+    again.className = "form-input";
+    again.type = "password";
+    again.autocomplete = "new-password";
+    again.minLength = 8;
+    again.required = true;
+    const change = document.createElement("button");
+    change.type = "submit";
+    change.className = "btn btn-brand-outline btn-small";
+    change.textContent = "Change journal password";
+    const message = document.createElement("p");
+    message.id = "journal-password-message";
+    message.className = "log-hint";
+    passwordForm.append(nextLabel, next, againLabel, again, change, message);
+    const wrap = document.createElement("div");
+    wrap.append(header, note, passwordForm);
+    return wrap;
+  }
+
+  function renderJournal() {
+    const unlocked = Boolean(journal.key);
+    const query = state.query.trim().toLowerCase();
+    const entries = unlocked
+      ? journal.entries
+          .filter((entry) => !query || (entry.title + "\n" + entry.body).toLowerCase().includes(query))
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+      : [];
+    listEl.innerHTML = "";
+    emptyList.hidden = entries.length > 0;
+    if (!unlocked) {
+      emptyList.hidden = false;
+      emptyList.textContent = journal.configured
+        ? journal.entryCount + (journal.entryCount === 1 ? " encrypted entry is locked." : " encrypted entries are locked.")
+        : "The journal does not have a password yet.";
+    } else if (!entries.length) {
+      emptyList.textContent = journal.entries.length ? "Nothing matches that search." : "No diary entries yet.";
+    }
+
+    entries.forEach((entry) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "log-entry" + (entry.id === state.selectedId ? " is-active" : "");
+      button.dataset.id = entry.id;
+      const kicker = document.createElement("span");
+      kicker.className = "log-kicker";
+      kicker.textContent = "Journal";
+      const title = document.createElement("strong");
+      title.textContent = entry.title.trim() || "Untitled entry";
+      const meta = document.createElement("span");
+      meta.className = "log-entry-meta";
+      meta.textContent = previewText(entry) + " · " + formatUpdated(entry.updatedAt);
+      button.append(kicker, title, meta);
+      listEl.append(button);
+    });
+
+    const entry = unlocked ? journalEntry() : null;
+    const mode = !journal.configured ? "create" : unlocked ? "edit" : "unlock";
+    const signature = "journal:" + mode + ":" + (entry ? entry.id : "") + ":" + state.confirmDeleteId;
+    if (signature === state.editorKey) return;
+    state.editorKey = signature;
+    editorEl.innerHTML = "";
+    if (mode !== "edit") {
+      editorEl.append(journalGate(mode));
+      const field = editorEl.querySelector("#journal-password");
+      if (field) field.focus();
+      return;
+    }
+    if (!entry) {
+      const empty = document.createElement("div");
+      empty.className = "log-editor-empty";
+      const heading = document.createElement("h2");
+      heading.textContent = "Encrypted journal";
+      const message = document.createElement("p");
+      message.textContent = "Diary entries are encrypted before they are saved. Lock the journal when you step away.";
+      const lock = document.createElement("button");
+      lock.type = "button";
+      lock.className = "btn btn-brand-outline";
+      lock.dataset.action = "lock-journal";
+      lock.textContent = "Lock journal";
+      empty.append(heading, message, lock);
+      editorEl.append(empty);
+      return;
+    }
+    editorEl.append(renderJournalEntry(entry));
+    if (!entry.title) {
+      const title = editorEl.querySelector("#entry-title");
+      if (title) title.focus();
+    }
+  }
+
   function renderFilters() {
     const counts = {
       all: state.log.entries.length,
       note: state.log.entries.filter((entry) => entry.type === "note").length,
-      todo: state.log.entries.filter((entry) => entry.type === "todo").length
+      todo: state.log.entries.filter((entry) => entry.type === "todo").length,
+      journal: journal.key ? journal.entries.length : journal.entryCount
     };
     filterButtons.forEach((button) => {
       const filter = button.dataset.filter;
-      const label = filter === "all" ? "All" : filter === "note" ? "Notes" : "Todos";
+      const label = filter === "all" ? "All" : filter === "note" ? "Notes" : filter === "todo" ? "Todos" : "Journal";
       button.textContent = label + " " + counts[filter];
       button.classList.toggle("is-active", state.filter === filter);
       button.setAttribute("aria-pressed", state.filter === filter ? "true" : "false");
@@ -403,6 +861,7 @@
     const body = document.createElement("textarea");
     body.id = "entry-body";
     body.className = "form-input log-body";
+    body.maxLength = 200000;
     body.value = entry.body;
     body.placeholder = entry.format === "markdown" ? "# Heading\n\nWrite with **bold**, lists, and `code`." : "Write the note.";
     write.append(bodyLabel, body);
@@ -497,6 +956,10 @@
 
   function render() {
     renderFilters();
+    if (state.filter === "journal") {
+      renderJournal();
+      return;
+    }
     renderList();
     renderEditor(false);
   }
@@ -584,6 +1047,19 @@
 
   document.querySelector("#new-note").addEventListener("click", () => addEntry("note"));
   document.querySelector("#new-todo").addEventListener("click", () => addEntry("todo"));
+  document.querySelector("#new-journal").addEventListener("click", () => {
+    state.filter = "journal";
+    state.query = "";
+    searchInput.value = "";
+    if (!journal.key) {
+      state.selectedId = null;
+      state.confirmDeleteId = "";
+      state.editorKey = "";
+      render();
+      return;
+    }
+    addJournalEntry();
+  });
 
   filterButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -604,6 +1080,21 @@
   });
 
   editorEl.addEventListener("input", (event) => {
+    if (state.filter === "journal") {
+      const entry = journalEntry();
+      if (!entry) return;
+      if (event.target.id === "entry-title") entry.title = event.target.value;
+      if (event.target.id === "entry-body") entry.body = event.target.value;
+      if (event.target.id === "entry-title" || event.target.id === "entry-body") {
+        entry.updatedAt = now();
+        markJournalDirty(entry);
+        const signature = state.editorKey;
+        state.editorKey = signature;
+        renderJournal();
+        if (entry.format === "markdown" && event.target.id === "entry-body") renderPreview(entry);
+      }
+      return;
+    }
     const entry = selectedEntry();
     if (!entry) return;
     if (event.target.id === "entry-title") {
@@ -633,6 +1124,62 @@
   });
 
   editorEl.addEventListener("click", (event) => {
+    if (state.filter === "journal") {
+      const control = event.target.closest("[data-action], [data-format]");
+      const action = control ? control.dataset.action || control.dataset.format : "";
+      if (!action) return;
+      if (action === "lock-journal") {
+        settleJournal().finally(() => {
+          forgetJournal();
+          state.selectedId = null;
+          state.confirmDeleteId = "";
+          state.editorKey = "";
+          render();
+        });
+        return;
+      }
+      const entry = journalEntry();
+      if (!entry) return;
+      if (action === "back") {
+        state.selectedId = null;
+        state.confirmDeleteId = "";
+        state.editorKey = "";
+        render();
+        return;
+      }
+      if (action === "plain" || action === "markdown") {
+        entry.format = action;
+        entry.updatedAt = now();
+        state.editorKey = "";
+        markJournalDirty(entry);
+        render();
+        return;
+      }
+      if (action === "delete-entry") {
+        state.confirmDeleteId = entry.id;
+        state.editorKey = "";
+        render();
+        return;
+      }
+      if (action === "cancel-delete") {
+        state.confirmDeleteId = "";
+        state.editorKey = "";
+        render();
+        return;
+      }
+      if (action === "confirm-delete") {
+        journal.entries = journal.entries.filter((candidate) => candidate.id !== entry.id);
+        journal.dirty.delete(entry.id);
+        journal.removed.add(entry.id);
+        journal.entryCount = journal.entries.length;
+        state.selectedId = null;
+        state.confirmDeleteId = "";
+        state.editorKey = "";
+        scheduleJournalSave();
+        render();
+      }
+      return;
+    }
     const control = event.target.closest("[data-action], [data-format]");
     const entry = selectedEntry();
     const action = control ? control.dataset.action || control.dataset.format : "";
@@ -711,7 +1258,67 @@
     }
   });
 
-  editorEl.addEventListener("submit", (event) => {
+  editorEl.addEventListener("submit", async (event) => {
+    const journalForm = event.target.closest("[data-journal-action]");
+    if (journalForm) {
+      event.preventDefault();
+      const action = journalForm.dataset.journalAction;
+      if (action === "journal-password") {
+        const password = journalForm.querySelector("#journal-password").value;
+        const error = journalForm.querySelector("#journal-error");
+        const submit = journalForm.querySelector("button[type='submit']");
+        if (password.length < 8) {
+          error.hidden = false;
+          error.textContent = "Use at least 8 characters.";
+          return;
+        }
+        if (journalForm.dataset.mode === "create") {
+          const confirm = journalForm.querySelector("#journal-password-confirm").value;
+          if (password !== confirm) {
+            error.hidden = false;
+            error.textContent = "Those journal passwords do not match.";
+            return;
+          }
+        }
+        submit.disabled = true;
+        submit.textContent = journalForm.dataset.mode === "create" ? "Encrypting…" : "Unlocking…";
+        try {
+          if (journalForm.dataset.mode === "create") await createJournal(password);
+          else await openJournal(password);
+          state.editorKey = "";
+          render();
+        } catch (openError) {
+          error.hidden = false;
+          error.textContent = openError.message || "The journal could not be opened.";
+          submit.disabled = false;
+          submit.textContent = journalForm.dataset.mode === "create" ? "Create journal" : "Unlock journal";
+        }
+        return;
+      }
+      if (action === "change-journal-password") {
+        const next = journalForm.querySelector("#journal-next-password");
+        const again = journalForm.querySelector("#journal-next-password-confirm");
+        const message = journalForm.querySelector("#journal-password-message");
+        message.textContent = "";
+        if (next.value.length < 8) {
+          message.textContent = "Use at least 8 characters.";
+          return;
+        }
+        if (next.value !== again.value) {
+          message.textContent = "Those journal passwords do not match.";
+          return;
+        }
+        try {
+          await changeJournalPassword(next.value);
+          next.value = "";
+          again.value = "";
+          message.textContent = "Journal password updated. Entries were re-encrypted.";
+        } catch (changeError) {
+          message.textContent = changeError.message || "The journal password could not be changed.";
+        }
+      }
+      return;
+    }
     const form = event.target.closest("[data-action='add-item']");
     if (!form) return;
     event.preventDefault();
@@ -720,6 +1327,11 @@
     const input = form.querySelector("input");
     const text = input ? input.value.trim() : "";
     if (!text) return;
+    if (entry.items.length >= 200) {
+      const progress = editorEl.querySelector(".log-progress");
+      if (progress) progress.textContent = "A list holds up to 200 items.";
+      return;
+    }
     entry.items.push({ id: createId(), text, done: false });
     touch(entry);
     state.editorKey = "";
@@ -729,19 +1341,58 @@
     if (next) next.focus();
   });
 
-  document.querySelector("#lock-btn").addEventListener("click", async () => {
-    try {
-      await settleSaves();
-    } catch (error) {
-      return;
-    }
-    await api("/notes/api/logout", { method: "POST", body: "{}" });
+  function clearPrivateView() {
+    window.clearTimeout(state.saveTimer);
+    window.clearTimeout(journal.timer);
+    dirty.clear();
+    removed.clear();
+    sendingSaves.clear();
+    sendingDeletes.clear();
+    forgetJournal();
     state.log = blankLog();
     state.selectedId = null;
     state.query = "";
-    searchInput.value = "";
+    state.confirmDeleteId = "";
+    state.confirmErase = false;
     state.editorKey = "";
+    state.saving = false;
+    searchInput.value = "";
+    ["#current-passphrase", "#next-passphrase", "#next-passphrase-confirm"].forEach((selector) => {
+      const field = document.querySelector(selector);
+      if (field) field.value = "";
+    });
+    const passphraseMessage = document.querySelector("#passphrase-message");
+    if (passphraseMessage) passphraseMessage.textContent = "";
+    listEl.innerHTML = "";
+    editorEl.innerHTML = "";
+    const lockButton = document.querySelector("#lock-btn");
+    lockButton.textContent = "Lock";
+    delete lockButton.dataset.discard;
+  }
+
+  document.querySelector("#lock-btn").addEventListener("click", async () => {
+    const button = document.querySelector("#lock-btn");
+    const discard = button.dataset.discard === "true";
+    if (!discard) {
+      try {
+        await settleSaves();
+        await settleJournal();
+      } catch (error) {
+        button.textContent = "Discard and lock";
+        button.dataset.discard = "true";
+        setSaveState("Unsaved edits could not be stored. Choose Discard and lock to hide them.");
+        return;
+      }
+    }
+    let logoutMessage = "";
+    try {
+      await api("/notes/api/logout", { method: "POST", body: "{}" });
+    } catch (error) {
+      logoutMessage = "Sign-out did not finish. Refreshing may open the log again.";
+    }
+    clearPrivateView();
     showGate("unlock");
+    if (logoutMessage) setGateError(logoutMessage);
   });
 
   document.querySelector("#export-btn").addEventListener("click", () => {
@@ -762,11 +1413,16 @@
     importInput.value = "";
     if (!file) return;
     try {
-      const imported = normalizeLog(JSON.parse(await file.text()));
+      const parsed = JSON.parse(await file.text());
+      if (!parsed || !Array.isArray(parsed.entries)) {
+        throw new Error("That file is not a log backup.");
+      }
       await settleSaves();
       dirty.clear();
       removed.clear();
-      const saved = await api("/notes/api/import", { method: "POST", body: JSON.stringify(imported) });
+      sendingSaves.clear();
+      sendingDeletes.clear();
+      const saved = await api("/notes/api/import", { method: "POST", body: JSON.stringify({ entries: parsed.entries }) });
       state.log = normalizeLog(saved);
       state.selectedId = state.log.entries[0] ? state.log.entries[0].id : null;
       state.editorKey = "";
@@ -833,8 +1489,58 @@
     }
   });
 
+  function keepaliveJson(path, method, payload) {
+    const body = payload === undefined ? undefined : JSON.stringify(payload);
+    if (body && body.length > 60000) return;
+    fetch(path, {
+      method,
+      body,
+      keepalive: true,
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" }
+    }).catch(() => {});
+  }
+
+  function hasUnsavedWork() {
+    return (
+      dirty.size > 0 ||
+      removed.size > 0 ||
+      sendingSaves.size > 0 ||
+      sendingDeletes.size > 0 ||
+      journal.dirty.size > 0 ||
+      journal.removed.size > 0 ||
+      journal.sending.size > 0
+    );
+  }
+
+  function flushOnLeave() {
+    window.clearTimeout(state.saveTimer);
+    window.clearTimeout(journal.timer);
+    const saves = new Map(sendingSaves);
+    dirty.forEach((id) => {
+      const entry = state.log.entries.find((candidate) => candidate.id === id);
+      if (entry) saves.set(id, JSON.parse(JSON.stringify(entry)));
+    });
+    const deletes = new Set([...removed, ...sendingDeletes]);
+    deletes.forEach((id) => {
+      saves.delete(id);
+      keepaliveJson("/notes/api/entries/" + encodeURIComponent(id), "DELETE");
+    });
+    saves.forEach((entry, id) => {
+      keepaliveJson("/notes/api/entries/" + encodeURIComponent(id), "PUT", entry);
+    });
+    if (journal.key) persistJournal();
+  }
+
+  window.addEventListener("beforeunload", (event) => {
+    if (!hasUnsavedWork()) return;
+    flushOnLeave();
+    event.preventDefault();
+    event.returnValue = "";
+  });
+
   window.addEventListener("pagehide", () => {
-    if (dirty.size || removed.size) persistNow();
+    if (hasUnsavedWork()) flushOnLeave();
   });
 
   async function boot() {

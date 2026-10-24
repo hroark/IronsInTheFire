@@ -81,6 +81,26 @@ async function connectDatabase() {
       INDEX entries_updated (updated_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS journal_seal (
+      id TINYINT PRIMARY KEY,
+      kdf_iterations INT NOT NULL,
+      salt VARCHAR(255) NOT NULL,
+      verifier_iv VARCHAR(255) NOT NULL,
+      verifier VARCHAR(512) NOT NULL,
+      created_at BIGINT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS journal_entries (
+      id VARCHAR(64) PRIMARY KEY,
+      iv VARCHAR(255) NOT NULL,
+      ciphertext MEDIUMTEXT NOT NULL,
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL,
+      INDEX journal_entries_updated (updated_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
   databaseError = "";
 }
 
@@ -195,6 +215,55 @@ function validId(value) {
   return typeof value === "string" && /^[A-Za-z0-9-]{8,64}$/.test(value);
 }
 
+function validBlob(value, max) {
+  return typeof value === "string" && value.length > 0 && value.length <= max && /^[A-Za-z0-9+/=_-]+$/.test(value);
+}
+
+function normalizeSeal(body) {
+  const iterations = Number(body && body.iterations);
+  if (!Number.isInteger(iterations) || iterations < 100000 || iterations > 1000000) return null;
+  if (!body || !validBlob(body.salt, 128) || !validBlob(body.verifierIv, 64) || !validBlob(body.verifier, 512)) return null;
+  return {
+    iterations,
+    salt: body.salt,
+    verifierIv: body.verifierIv,
+    verifier: body.verifier
+  };
+}
+
+function normalizeCipherEntry(entry) {
+  if (!entry || !validId(entry.id) || !validBlob(entry.iv, 64) || !validBlob(entry.ciphertext, 700000)) return null;
+  const createdAt = Number(entry.createdAt);
+  const updatedAt = Number(entry.updatedAt);
+  if (!Number.isFinite(createdAt) || !Number.isFinite(updatedAt)) return null;
+  return { id: entry.id, iv: entry.iv, ciphertext: entry.ciphertext, createdAt, updatedAt };
+}
+
+async function writeSeal(executor, seal) {
+  await executor.query(
+    `INSERT INTO journal_seal (id, kdf_iterations, salt, verifier_iv, verifier, created_at)
+     VALUES (1, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       kdf_iterations = VALUES(kdf_iterations),
+       salt = VALUES(salt),
+       verifier_iv = VALUES(verifier_iv),
+       verifier = VALUES(verifier)`,
+    [seal.iterations, seal.salt, seal.verifierIv, seal.verifier, Date.now()]
+  );
+}
+
+async function writeJournalEntry(executor, entry) {
+  await executor.query(
+    `INSERT INTO journal_entries (id, iv, ciphertext, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       iv = VALUES(iv),
+       ciphertext = VALUES(ciphertext),
+       updated_at = VALUES(updated_at)`,
+    [entry.id, entry.iv, entry.ciphertext, entry.createdAt, entry.updatedAt]
+  );
+}
+
 function normalizeItem(item) {
   if (!item || typeof item !== "object" || typeof item.text !== "string" || !validId(item.id)) return null;
   return { id: item.id, text: item.text.slice(0, 500), done: Boolean(item.done) };
@@ -290,7 +359,10 @@ const route = (handler) => (req, res, next) => Promise.resolve(handler(req, res,
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
-app.use(express.json({ limit: "2mb" }));
+app.use((req, res, next) => {
+  const large = req.path === "/notes/api/import" || req.path === "/notes/api/journal/rekey";
+  return express.json({ limit: large ? "32mb" : "2mb" })(req, res, next);
+});
 
 app.get("/notes/api/session", requireDatabase, route(async (req, res) => {
   const [accounts] = await pool.query("SELECT id FROM account WHERE id = 1");
@@ -334,6 +406,7 @@ app.post("/notes/api/login", requireDatabase, route(async (req, res) => {
     res.status(429).json({ error: "Too many attempts. Wait a minute and try again." });
     return;
   }
+  recordFailure(req);
   const passphrase = req.body && req.body.passphrase;
   const [accounts] = await pool.query("SELECT password_hash, password_salt FROM account WHERE id = 1");
   const account = accounts[0];
@@ -341,7 +414,6 @@ app.post("/notes/api/login", requireDatabase, route(async (req, res) => {
     ? await passwordMatches(passphrase, account.password_salt, account.password_hash)
     : false;
   if (!matches) {
-    recordFailure(req);
     res.status(401).json({ error: "That passphrase is not right." });
     return;
   }
@@ -373,6 +445,8 @@ app.put("/notes/api/passphrase", requireDatabase, requireAuth, route(async (req,
   }
   const record = await createPasswordRecord(next);
   await pool.query("UPDATE account SET password_hash = ?, password_salt = ? WHERE id = 1", [record.hash, record.salt]);
+  await pool.query("DELETE FROM sessions");
+  await startSession(res);
   res.json({ ok: true });
 }));
 
@@ -411,7 +485,23 @@ app.post("/notes/api/import", requireDatabase, requireAuth, route(async (req, re
     res.status(400).json({ error: "That file is not a log backup." });
     return;
   }
-  const entries = source.map(normalizeEntry).filter(Boolean).slice(0, 500);
+  const entries = [];
+  for (const raw of source) {
+    if (raw && raw.type === "note" && String(raw.body || "").length > 200000) {
+      res.status(400).json({ error: "That backup contains a note longer than the log can store. Nothing was replaced." });
+      return;
+    }
+    if (raw && raw.type === "todo" && Array.isArray(raw.items) && raw.items.length > 200) {
+      res.status(400).json({ error: "That backup contains a list with more than 200 items. Nothing was replaced." });
+      return;
+    }
+    const entry = normalizeEntry(raw);
+    if (!entry) {
+      res.status(400).json({ error: "That backup contains an entry that cannot be stored. Nothing was replaced." });
+      return;
+    }
+    entries.push(entry);
+  }
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -425,6 +515,108 @@ app.post("/notes/api/import", requireDatabase, requireAuth, route(async (req, re
     connection.release();
   }
   res.json({ entries });
+}));
+
+app.get("/notes/api/journal", requireDatabase, requireAuth, route(async (req, res) => {
+  const [seals] = await pool.query("SELECT id FROM journal_seal WHERE id = 1");
+  const [counts] = await pool.query("SELECT COUNT(*) AS count FROM journal_entries");
+  res.json({ configured: seals.length > 0, entryCount: Number(counts[0].count) });
+}));
+
+app.get("/notes/api/journal/seal", requireDatabase, requireAuth, route(async (req, res) => {
+  const [rows] = await pool.query(
+    "SELECT kdf_iterations, salt, verifier_iv, verifier FROM journal_seal WHERE id = 1"
+  );
+  if (!rows.length) {
+    res.status(404).json({ error: "The journal does not have a password yet." });
+    return;
+  }
+  res.json({
+    iterations: rows[0].kdf_iterations,
+    salt: rows[0].salt,
+    verifierIv: rows[0].verifier_iv,
+    verifier: rows[0].verifier
+  });
+}));
+
+app.put("/notes/api/journal/seal", requireDatabase, requireAuth, route(async (req, res) => {
+  const seal = normalizeSeal(req.body);
+  if (!seal) {
+    res.status(400).json({ error: "The journal password could not be saved." });
+    return;
+  }
+  const [existing] = await pool.query("SELECT id FROM journal_seal WHERE id = 1");
+  if (existing.length) {
+    res.status(409).json({ error: "The journal already has a password." });
+    return;
+  }
+  await writeSeal(pool, seal);
+  res.status(201).json({ ok: true });
+}));
+
+app.get("/notes/api/journal/entries", requireDatabase, requireAuth, route(async (req, res) => {
+  const [rows] = await pool.query("SELECT id, iv, ciphertext, created_at, updated_at FROM journal_entries ORDER BY updated_at DESC");
+  res.json({
+    entries: rows.map((row) => ({
+      id: row.id,
+      iv: row.iv,
+      ciphertext: row.ciphertext,
+      createdAt: Number(row.created_at),
+      updatedAt: Number(row.updated_at)
+    }))
+  });
+}));
+
+app.put("/notes/api/journal/entries/:id", requireDatabase, requireAuth, route(async (req, res) => {
+  const entry = normalizeCipherEntry({ ...req.body, id: req.params.id });
+  if (!entry) {
+    res.status(400).json({ error: "That journal entry could not be saved." });
+    return;
+  }
+  const [seals] = await pool.query("SELECT id FROM journal_seal WHERE id = 1");
+  if (!seals.length) {
+    res.status(409).json({ error: "Choose a journal password first." });
+    return;
+  }
+  await writeJournalEntry(pool, entry);
+  res.json({ ok: true });
+}));
+
+app.delete("/notes/api/journal/entries/:id", requireDatabase, requireAuth, route(async (req, res) => {
+  if (!validId(req.params.id)) {
+    res.status(400).json({ error: "That journal entry could not be deleted." });
+    return;
+  }
+  await pool.query("DELETE FROM journal_entries WHERE id = ?", [req.params.id]);
+  res.json({ ok: true });
+}));
+
+app.put("/notes/api/journal/rekey", requireDatabase, requireAuth, route(async (req, res) => {
+  const seal = normalizeSeal(req.body && req.body.seal);
+  const source = req.body && Array.isArray(req.body.entries) ? req.body.entries : null;
+  if (!seal || !source) {
+    res.status(400).json({ error: "The journal password could not be changed." });
+    return;
+  }
+  const entries = source.map(normalizeCipherEntry).filter(Boolean);
+  if (entries.length !== source.length) {
+    res.status(400).json({ error: "The journal password could not be changed." });
+    return;
+  }
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await writeSeal(connection, seal);
+    await connection.query("DELETE FROM journal_entries");
+    for (const entry of entries) await writeJournalEntry(connection, entry);
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+  res.json({ ok: true });
 }));
 
 async function saveEntryOn(executor, entry) {
@@ -450,7 +642,14 @@ app.use((error, req, res, next) => {
     return;
   }
   const tooLarge = error && (error.type === "entity.too.large" || error.status === 413);
-  res.status(tooLarge ? 413 : 500).json({ error: tooLarge ? "That note is too large to save." : "The log could not be saved." });
+  const importTooLarge = tooLarge && req.path === "/notes/api/import";
+  res.status(tooLarge ? 413 : 500).json({
+    error: importTooLarge
+      ? "That backup is too large to restore. Nothing was replaced."
+      : tooLarge
+        ? "That note is too large to save."
+        : "The log could not be saved."
+  });
 });
 
 app.use((req, res, next) => {

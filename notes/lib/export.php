@@ -68,6 +68,10 @@ function unique_folder(string $name, int $id, array &$used): string
     $folder = $base;
     if (isset($used[$folder])) {
         $folder = $base . '-' . $id;
+        $suffix = 2;
+        while (isset($used[$folder])) {
+            $folder = $base . '-' . $id . '-' . $suffix++;
+        }
     }
     $used[$folder] = true;
     return $folder;

@@ -25,16 +25,12 @@ function read_env_text(string $text): array
             continue;
         }
         $value = trim(substr($line, $equals + 1));
-        if (strlen($value) >= 2) {
-            $quote = $value[0];
-            if (($quote === '"' || $quote === "'") && str_ends_with($value, $quote)) {
-                $value = substr($value, 1, -1);
-                if ($quote === '"') {
-                    $value = stripcslashes($value);
-                }
-            } elseif (preg_match('/^(.*?)\s+#.*$/', $value, $matches)) {
-                $value = rtrim($matches[1]);
-            }
+        if (preg_match('/^"((?:[^"\\\\]|\\\\.)*)"(?:\s+#.*)?$/', $value, $matches)) {
+            $value = stripcslashes($matches[1]);
+        } elseif (preg_match("/^'(.*?)'(?:\\s+#.*)?$/", $value, $matches)) {
+            $value = $matches[1];
+        } elseif (preg_match('/^(.*?)\s+#.*$/', $value, $matches)) {
+            $value = rtrim($matches[1]);
         }
         $vars[$name] = $value;
     }

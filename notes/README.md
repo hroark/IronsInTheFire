@@ -17,7 +17,7 @@ The hosted site reads `public_html/notes/config.php`. There is no `.env` folder.
 1. Create a MySQL database named `porter_notes` and a user that can use it. If the database was named `irondb`, renaming it to `porter_notes` is the right name.
 2. Import [`sql/schema.sql`](sql/schema.sql) into `porter_notes` if the tables are not there yet. The notes page also creates them on the first successful connection.
 3. Put the database host, name, user, and password in `public_html/notes/config.php`. Either the PHP settings in `config.example.php`, or the `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_DATABASE` lines, are accepted. `MYSQL_DATABASE` should be `porter_notes`.
-4. Open `/notes/` and choose a sign-in password. That password is only for the notes page. It is separate from the MySQL password.
+4. Set `setup_secret` in `config.php` to a random value of at least 32 characters, then open `/notes/` and enter that secret to choose a sign-in password. That password is only for the notes page. It is separate from the MySQL password. Remove `setup_secret` from `config.php` after setup.
 
 `config.php` is gitignored, so it stays on the server and out of git. Apache is told not to serve it, or the example file, via `notes/.htaccess`. The `lib`, `templates`, `sql`, and `tests` directories are blocked the same way.
 

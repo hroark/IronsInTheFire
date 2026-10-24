@@ -23,6 +23,8 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
         <form method="post" action="index.php" class="notes-login-form">
             <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
             <input type="hidden" name="action" value="choose_password">
+            <label for="setup_secret">Setup secret</label>
+            <input id="setup_secret" class="form-control" type="password" name="setup_secret" autocomplete="off" required>
             <label for="password">Password</label>
             <input id="password" class="form-control" type="password" name="password" autocomplete="new-password" minlength="8" required>
             <label for="confirm">Confirm password</label>

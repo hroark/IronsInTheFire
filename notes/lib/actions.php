@@ -51,6 +51,12 @@ function handle_choose_password(): void
         render_login('A sign-in password is already set.');
         exit;
     }
+    $setupSecret = configured_setup_secret();
+    $submittedSecret = $_POST['setup_secret'] ?? '';
+    if ($setupSecret === '' || !is_string($submittedSecret) || !hash_equals($setupSecret, $submittedSecret)) {
+        render_login('The setup secret is incorrect.', true);
+        exit;
+    }
     $password = $_POST['password'] ?? '';
     $confirm = $_POST['confirm'] ?? '';
     if (!is_string($password) || !is_string($confirm) || strlen($password) < 8) {

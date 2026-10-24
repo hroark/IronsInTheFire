@@ -67,6 +67,13 @@ function configured_password_plain(): string
     return is_string($plain) ? $plain : '';
 }
 
+function configured_setup_secret(): string
+{
+    $config = config() ?? [];
+    $secret = $config['setup_secret'] ?? '';
+    return is_string($secret) && strlen($secret) >= 32 ? $secret : '';
+}
+
 function saved_sign_in_hash(): string
 {
     $statement = db()->query('SELECT password_hash FROM app_password WHERE id = 1');

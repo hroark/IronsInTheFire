@@ -9,7 +9,7 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
 // Copy this file to config.php and fill in the values.
 // A .env file or folder is not required.
 // The database name is porter_notes. Leave that name as it is.
-// On the first visit, the notes page asks you to choose a sign-in password.
+// Set a random setup_secret before choosing the sign-in password.
 
 return [
     'db' => [
@@ -21,5 +21,6 @@ return [
         'charset' => 'utf8mb4',
     ],
     'password_hash' => '',
+    'setup_secret' => '',
     'session_name' => 'iitf_notes',
 ];

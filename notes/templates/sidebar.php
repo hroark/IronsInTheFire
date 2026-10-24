@@ -24,10 +24,10 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
     <?php if (!$tagList): ?>
         <p class="notes-side-empty">Tags appear when you add them to a note or link.</p>
     <?php endif; ?>
-    <?php foreach ($tagList as $tag): ?>
-        <a class="notes-side-link<?= ($active['view'] ?? '') === 'tag' && (int) ($active['tag'] ?? 0) === $tag['id'] ? ' is-active' : '' ?>" href="index.php?view=tag&id=<?= (int) $tag['id'] ?>">
-            <span><?= e($tag['name']) ?></span>
-            <span class="notes-count"><?= (int) $tag['count'] ?></span>
+    <?php foreach ($tagList as $sidebarTag): ?>
+        <a class="notes-side-link<?= ($active['view'] ?? '') === 'tag' && (int) ($active['tag'] ?? 0) === $sidebarTag['id'] ? ' is-active' : '' ?>" href="index.php?view=tag&id=<?= (int) $sidebarTag['id'] ?>">
+            <span><?= e($sidebarTag['name']) ?></span>
+            <span class="notes-count"><?= (int) $sidebarTag['count'] ?></span>
         </a>
     <?php endforeach; ?>
 

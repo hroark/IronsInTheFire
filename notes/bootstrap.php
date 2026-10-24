@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/lib/guard.php';
+require_once __DIR__ . '/lib/env.php';
 require_once __DIR__ . '/lib/helpers.php';
 require_once __DIR__ . '/lib/tasks.php';
 require_once __DIR__ . '/lib/github.php';
@@ -22,28 +23,54 @@ function config(): ?array
     }
     $loaded = true;
     $path = __DIR__ . '/config.php';
-    if (!is_file($path)) {
+    if (is_file($path)) {
+        $config = config_from_file($path);
+        if ($config !== null) {
+            return $config;
+        }
+    }
+    return null;
+}
+
+function config_from_file(string $path): ?array
+{
+    $contents = file_get_contents($path);
+    if (!is_string($contents) || trim($contents) === '') {
         return null;
     }
-    $value = require $path;
-    $config = is_array($value) ? $value : null;
-    return $config;
+    if (preg_match('/<\?php\b/i', $contents)) {
+        ob_start();
+        try {
+            $value = require $path;
+        } finally {
+            ob_end_clean();
+        }
+        if (!is_array($value)) {
+            return null;
+        }
+        if (isset($value['db']) && is_array($value['db'])) {
+            $value['db']['name'] = notes_database_name((string) ($value['db']['name'] ?? ''));
+        }
+        return $value;
+    }
+    return config_from_env(read_env_text($contents));
 }
 
 function config_problems(): array
 {
     $config = config();
     if ($config === null) {
-        return ['Copy notes/config.example.php to notes/config.php, then set the database login and password hash.'];
+        return ['Add the MySQL host, database name, user, and password to notes/config.php. The database is named porter_notes. A .env folder is not used.'];
+    }
+    $db = $config['db'] ?? null;
+    if (!is_array($db)) {
+        return ['Add the MySQL host, database name, user, and password to notes/config.php. The database is named porter_notes.'];
     }
     $problems = [];
-    $hash = trim((string) ($config['password_hash'] ?? ''));
-    if ($hash === '' || !password_get_info($hash)['algo']) {
-        $problems[] = 'Set password_hash in notes/config.php to a value from password_hash().';
-    }
     foreach (['host', 'name', 'user'] as $key) {
-        if (trim((string) ($config['db'][$key] ?? '')) === '') {
-            $problems[] = 'Set the database ' . $key . ' in notes/config.php.';
+        $value = $db[$key] ?? '';
+        if (!is_scalar($value) || trim((string) $value) === '') {
+            $problems[] = 'Set the database ' . $key . ' in notes/config.php. The database is named porter_notes.';
         }
     }
     return $problems;

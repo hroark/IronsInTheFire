@@ -46,6 +46,73 @@ function is_logged_in(): bool
     return !empty($_SESSION['notes_auth']);
 }
 
+function configured_password_hash(): string
+{
+    $config = config() ?? [];
+    $hash = $config['password_hash'] ?? '';
+    if (!is_string($hash)) {
+        return '';
+    }
+    $hash = trim($hash);
+    if ($hash === '' || !password_get_info($hash)['algo']) {
+        return '';
+    }
+    return $hash;
+}
+
+function configured_password_plain(): string
+{
+    $config = config() ?? [];
+    $plain = $config['password_plain'] ?? '';
+    return is_string($plain) ? $plain : '';
+}
+
+function saved_sign_in_hash(): string
+{
+    $statement = db()->query('SELECT password_hash FROM app_password WHERE id = 1');
+    $hash = $statement ? $statement->fetchColumn() : false;
+    return is_string($hash) ? $hash : '';
+}
+
+function sign_in_password_ready(): bool
+{
+    if (configured_password_hash() !== '' || configured_password_plain() !== '') {
+        return true;
+    }
+    return saved_sign_in_hash() !== '';
+}
+
+function verify_sign_in_password(string $password): bool
+{
+    $hash = configured_password_hash();
+    if ($hash !== '') {
+        return password_verify($password, $hash);
+    }
+    $plain = configured_password_plain();
+    if ($plain !== '') {
+        return hash_equals($plain, $password);
+    }
+    $saved = saved_sign_in_hash();
+    return $saved !== '' && password_verify($password, $saved);
+}
+
+function save_sign_in_password(string $password): bool
+{
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+    if (!is_string($hash) || $hash === '') {
+        return false;
+    }
+    try {
+        $statement = db()->prepare('INSERT INTO app_password (id, password_hash) VALUES (1, ?)');
+        return $statement->execute([$hash]);
+    } catch (PDOException $e) {
+        if ((string) ($e->errorInfo[1] ?? '') !== '1062') {
+            throw $e;
+        }
+        return false;
+    }
+}
+
 function login_state_path(): string
 {
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';

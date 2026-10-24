@@ -6,11 +6,8 @@ It includes links to projects I am working on, and my resume at the moment. I wi
 
 ## Private notes
 
-Notes and todo lists live at `/notes/` and are not linked from the public pages. They are stored in MySQL.
+Notes live at `public_html/notes` and are not linked from the public pages. The hosted page reads `notes/config.php`. It does not look for a `.env` file or a `.env` folder.
 
-1. Create a MySQL database and a user that can use it.
-2. Copy `.env.example` to `.env` and fill in the database settings.
-3. Run `npm install`, then `npm start`.
-4. Open `http://localhost:3000/notes/` and choose a passphrase on the first visit.
+The MySQL database is named `porter_notes`. In `config.php`, set the host, that database name, the user, and the password. `MYSQL_HOST` and `MYSQL_DATABASE` lines are accepted in that file. Open `/notes/` and choose a sign-in password the first time.
 
-The Journal section uses a second password. Diary entries are encrypted in the browser before they are saved, and MySQL stores only ciphertext. That journal password is never sent to the server. The notes passphrase can open the log, and it still cannot read the journal. 
+`npm start` is only for running the site on your own computer. That local server is the one that reads a `.env` file copied from `.env.example`. 

@@ -15,13 +15,14 @@ function render(string $template, array $vars = []): void
     include __DIR__ . '/../templates/layout.php';
 }
 
-function render_login(?string $error = null): void
+function render_login(?string $error = null, bool $choosePassword = false): void
 {
     render('login', [
         'bare' => true,
-        'pageTitle' => 'Sign in',
+        'pageTitle' => $choosePassword ? 'Choose a password' : 'Sign in',
         'error' => $error,
-        'problems' => config_problems(),
+        'problems' => $choosePassword ? [] : config_problems(),
+        'choosePassword' => $choosePassword,
     ]);
 }
 

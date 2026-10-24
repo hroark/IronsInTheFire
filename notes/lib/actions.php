@@ -30,13 +30,39 @@ function handle_login(): void
         exit;
     }
     $password = $_POST['password'] ?? '';
-    $hash = (string) (config()['password_hash'] ?? '');
-    if (!is_string($password) || $hash === '' || !password_verify($password, $hash)) {
+    if (!is_string($password) || !verify_sign_in_password($password)) {
         login_fail();
         $message = login_locked()
             ? 'Too many attempts. Try again in a few minutes.'
             : 'Incorrect password.';
         render_login($message);
+        exit;
+    }
+    login_clear();
+    session_regenerate_id(true);
+    $_SESSION['notes_auth'] = true;
+    redirect_to('view=notes');
+}
+
+function handle_choose_password(): void
+{
+    csrf_check();
+    if (sign_in_password_ready()) {
+        render_login('A sign-in password is already set.');
+        exit;
+    }
+    $password = $_POST['password'] ?? '';
+    $confirm = $_POST['confirm'] ?? '';
+    if (!is_string($password) || !is_string($confirm) || strlen($password) < 8) {
+        render_login('Use at least 8 characters.', true);
+        exit;
+    }
+    if (!hash_equals($password, $confirm)) {
+        render_login('Those passwords do not match.', true);
+        exit;
+    }
+    if (!save_sign_in_password($password)) {
+        render_login('A sign-in password is already set.');
         exit;
     }
     login_clear();

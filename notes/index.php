@@ -25,6 +25,15 @@ function dispatch_notes(): void
         return;
     }
 
+    if (!sign_in_password_ready()) {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'choose_password') {
+            handle_choose_password();
+            return;
+        }
+        render_login(null, true);
+        return;
+    }
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = (string) ($_POST['action'] ?? '');
         if ($action === 'login') {

@@ -420,3 +420,4 @@ FodyWeavers.xsd
 
 #my crap
 todo.txt
+.env.example

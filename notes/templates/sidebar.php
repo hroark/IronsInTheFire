@@ -8,15 +8,17 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
     <a class="btn btn-brand notes-new" href="index.php?view=edit<?= !empty($active['notebook']) ? '&notebook=' . (int) $active['notebook'] : '' ?>">New note</a>
     <a class="notes-side-link notes-journal-link<?= ($active['view'] ?? '') === 'journal' ? ' is-active' : '' ?>" href="index.php?view=journal">Journal</a>
     <p class="notes-side-label">Notebooks</p>
-    <a class="notes-side-link<?= ($active['view'] ?? '') === 'notes' && (int) ($active['notebook'] ?? 0) === (int) ($inbox['id'] ?? 0) ? ' is-active' : '' ?>" data-drop-notebook="<?= (int) ($inbox['id'] ?? 0) ?>" href="index.php?view=notes&notebook=<?= (int) ($inbox['id'] ?? 0) ?>">
-        <span><?= e($inbox['name'] ?? 'Inbox') ?></span>
-        <span class="notes-count"><?= (int) ($inboxCount ?? 0) ?></span>
-    </a>
     <a class="notes-side-link<?= ($active['view'] ?? '') === 'notes' && empty($active['notebook']) ? ' is-active' : '' ?>" href="index.php?view=notes">All notes</a>
-    <?php foreach ($notebooks as $notebook): ?>
-        <?php if ((int) $notebook['id'] === (int) ($inbox['id'] ?? 0)) { continue; } ?>
-        <a class="notes-side-link<?= ($active['view'] ?? '') === 'notes' && (int) ($active['notebook'] ?? 0) === $notebook['id'] ? ' is-active' : '' ?>" data-drop-notebook="<?= (int) $notebook['id'] ?>" href="index.php?view=notes&notebook=<?= (int) $notebook['id'] ?>"><?= e($notebook['name']) ?></a>
-    <?php endforeach; ?>
+    <div class="notes-notebook-list" data-notebook-list>
+        <?php foreach ($notebooks as $notebook): ?>
+            <a class="notes-side-link<?= ($active['view'] ?? '') === 'notes' && (int) ($active['notebook'] ?? 0) === $notebook['id'] ? ' is-active' : '' ?>" draggable="true" data-notebook-id="<?= (int) $notebook['id'] ?>" data-drop-notebook="<?= (int) $notebook['id'] ?>" href="index.php?view=notes&notebook=<?= (int) $notebook['id'] ?>" title="Drag to reorder">
+                <span><?= e($notebook['name']) ?></span>
+                <?php if ((int) $notebook['id'] === (int) ($inbox['id'] ?? 0)): ?>
+                    <span class="notes-count"><?= (int) ($inboxCount ?? 0) ?></span>
+                <?php endif; ?>
+            </a>
+        <?php endforeach; ?>
+    </div>
     <form class="notes-inline-form" method="post" action="index.php">
         <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
         <input type="hidden" name="action" value="create-notebook">

@@ -2,14 +2,15 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/lib/clip.php';
+require_once dirname(__DIR__) . '/lib/records.php';
 require dirname(__DIR__) . '/lib/auth.php';
 require dirname(__DIR__) . '/lib/env.php';
 require dirname(__DIR__) . '/lib/journal.php';
 require_once dirname(__DIR__) . '/lib/helpers.php';
-require dirname(__DIR__) . '/lib/tasks.php';
+require_once dirname(__DIR__) . '/lib/tasks.php';
 require dirname(__DIR__) . '/lib/github.php';
 require dirname(__DIR__) . '/lib/export.php';
-require dirname(__DIR__) . '/lib/tags.php';
+require_once dirname(__DIR__) . '/lib/tags.php';
 
 $failures = 0;
 
@@ -146,6 +147,12 @@ $bookmarklet = clip_bookmarklet('https://example.com/notes/index.php');
 check(strpos($bookmarklet, 'javascript:') === 0, 'the bookmarklet is a javascript URL');
 check(strpos($bookmarklet, 'https://example.com/notes/index.php?view=clip') !== false, 'the bookmarklet opens the clip page');
 check(strpos($bookmarklet, 'notebook') === false, 'the bookmarklet does not choose a notebook');
+
+$reordered = notebook_id_order([1, 2, 3], [3, 1, 2]);
+check($reordered === [3, 1, 2], 'notebook order accepts the same folders in a new sequence');
+check(notebook_id_order([1, 2], [1]) === null, 'notebook order rejects a missing folder');
+check(notebook_id_order([1, 2], [1, 2, 9]) === null, 'notebook order rejects an unknown folder');
+check(notebook_id_order([1, 2], [1, 1]) === null, 'notebook order rejects a repeated folder');
 
 if ($failures > 0) {
     fwrite(STDERR, "{$failures} failed\n");

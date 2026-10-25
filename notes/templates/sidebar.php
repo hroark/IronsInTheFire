@@ -6,6 +6,7 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
 ?>
 <nav class="notes-sidebar" aria-label="Notes">
     <a class="btn btn-brand notes-new" href="index.php?view=edit<?= !empty($active['notebook']) ? '&notebook=' . (int) $active['notebook'] : '' ?>">New note</a>
+    <a class="notes-side-link notes-journal-link<?= ($active['view'] ?? '') === 'journal' ? ' is-active' : '' ?>" href="index.php?view=journal">Journal</a>
     <p class="notes-side-label">Notebooks</p>
     <a class="notes-side-link<?= ($active['view'] ?? '') === 'notes' && empty($active['notebook']) ? ' is-active' : '' ?>" href="index.php?view=notes">All notes</a>
     <?php foreach ($notebooks as $notebook): ?>

@@ -157,6 +157,38 @@
   padding: 1.25rem;
 }
 
+.notes-journal-link {
+  margin-top: 0.7rem;
+}
+
+.journal-gate,
+.journal-entry {
+  margin-top: 1rem;
+}
+
+.journal-layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.journal-entry {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.journal-entry.is-active {
+  outline: 2px solid var(--color-accent);
+}
+
+@media (max-width: 800px) {
+  .journal-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .notes-heading,
 .notes-card-top,
 .notes-form-actions,

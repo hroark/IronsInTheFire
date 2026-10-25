@@ -110,6 +110,15 @@ function handle_post(string $action): void
         case 'delete-notebook':
             delete_notebook_action();
             break;
+        case 'journal-seal':
+            journal_seal_action();
+            break;
+        case 'journal-save':
+            journal_save_action();
+            break;
+        case 'journal-delete':
+            journal_delete_action();
+            break;
         default:
             http_response_code(404);
             exit('Unknown action.');

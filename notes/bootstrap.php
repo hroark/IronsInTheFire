@@ -10,6 +10,7 @@ require_once __DIR__ . '/lib/export.php';
 require_once __DIR__ . '/lib/tags.php';
 require_once __DIR__ . '/lib/auth.php';
 require_once __DIR__ . '/lib/db.php';
+require_once __DIR__ . '/lib/journal.php';
 require_once __DIR__ . '/lib/records.php';
 require_once __DIR__ . '/lib/actions.php';
 require_once __DIR__ . '/lib/view.php';

@@ -113,6 +113,7 @@ function ensure_notes_schema(PDO $pdo): void
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
     }
+    ensure_journal_schema($pdo);
     $ready = true;
 }
 

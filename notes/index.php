@@ -95,6 +95,10 @@ function dispatch_notes(): void
         download_zip_action();
         return;
     }
+    if ($action === 'journal-data') {
+        journal_data_action();
+        return;
+    }
 
     render_current_view();
 }

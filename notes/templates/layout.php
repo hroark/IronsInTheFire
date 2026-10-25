@@ -49,5 +49,9 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
     <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js" crossorigin="anonymous"></script>
     <script src="assets/notes.js"></script>
+    <?php if (($active['view'] ?? '') === 'journal'): ?>
+        <script src="assets/journal-crypto.js"></script>
+        <script src="assets/journal-page.js"></script>
+    <?php endif; ?>
 </body>
 </html>

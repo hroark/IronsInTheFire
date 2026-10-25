@@ -1,6 +1,6 @@
 # Notes
 
-Password-protected notes for this site. It keeps Markdown notes, notebooks, tags, task lists, and saved links in MySQL. You can download one note as Markdown, or everything as a zip file.
+Password-protected notes for this site. It keeps Markdown notes, notebooks, tags, task lists, and saved links in MySQL. You can download one note as Markdown, or everything as a zip file. The Journal link in the notes sidebar opens a separate diary. That diary has its own password. The browser encrypts each entry before saving it, and MySQL stores only ciphertext. The journal password is never sent to the server, and it cannot be recovered or changed. The zip download does not include journal entries. The journal tables are created on the first signed-in visit when the database user can create tables.
 
 This folder has to be served by PHP. A static host such as GitHub Pages cannot run it.
 

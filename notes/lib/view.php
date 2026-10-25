@@ -179,6 +179,14 @@ function render_current_view(): void
         return;
     }
 
+    if ($view === 'journal') {
+        render_app('journal', [
+            'pageTitle' => 'Journal',
+            'active' => $active,
+        ]);
+        return;
+    }
+
     if ($view === 'edit') {
         $id = (int) ($_GET['id'] ?? 0);
         $draft = take_draft('note');

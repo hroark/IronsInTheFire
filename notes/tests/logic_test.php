@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/lib/auth.php';
 require dirname(__DIR__) . '/lib/env.php';
+require dirname(__DIR__) . '/lib/journal.php';
 require dirname(__DIR__) . '/lib/helpers.php';
 require dirname(__DIR__) . '/lib/tasks.php';
 require dirname(__DIR__) . '/lib/github.php';
@@ -124,6 +125,10 @@ $attempts = database_attempts(['host' => '127.0.0.1', 'port' => '3306', 'name' =
 check(count($attempts) === 2 && $attempts[1]['host'] === 'localhost', '127.0.0.1 also tries the localhost socket');
 check(database_failure_message(1045, '127.0.0.1', 'notes', 'porter_notes', true, false) !== '' && strpos(database_failure_message(1045, '127.0.0.1', 'notes', 'porter_notes', true, false), 'localhost') !== false, 'a rejected login mentions localhost');
 check(strpos(database_failure_message(1049, '127.0.0.1', 'notes', 'porter_notes', false, false), 'porter_notes') !== false, 'a missing database names the database');
+check(journal_valid_blob('abc+/=_-', 20) === true, 'journal ciphertext uses a limited alphabet');
+check(journal_valid_blob('hello there', 20) === false, 'journal ciphertext rejects spaces');
+check(journal_iterations('310000') === 310000, 'journal key stretching accepts the browser setting');
+check(journal_iterations('1000') === null, 'journal key stretching rejects a short setting');
 
 if ($failures > 0) {
     fwrite(STDERR, "{$failures} failed\n");

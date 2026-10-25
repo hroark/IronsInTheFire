@@ -22,16 +22,18 @@ function config(): ?array
         return $config;
     }
     $loaded = true;
+    $candidates = [];
     foreach ([__DIR__ . '/config.php', __DIR__ . '/php.config', dirname(__DIR__) . '/php.config'] as $path) {
         if (!is_file($path)) {
             continue;
         }
-        $config = config_from_file($path);
-        if ($config !== null) {
-            return $config;
+        $loadedConfig = config_from_file($path);
+        if ($loadedConfig !== null) {
+            $candidates[] = $loadedConfig;
         }
     }
-    return null;
+    $config = preferred_notes_config($candidates);
+    return $config;
 }
 
 function config_from_file(string $path): ?array

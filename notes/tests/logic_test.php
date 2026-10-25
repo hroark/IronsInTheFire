@@ -116,6 +116,15 @@ check(is_array($fromPhpConfig) && $fromPhpConfig['db']['pass'] === $mysqlSetting
 check(is_array($fromPhpConfig) && $fromPhpConfig['password_hash'] === $signInHash, 'a quoted NOTES_PASSWORD_HASH is kept whole');
 check(is_array($fromPhpConfig) && password_verify('diary-password-1', $fromPhpConfig['password_hash']), 'the quoted hash still verifies');
 
+$emptyExample = ['db' => ['host' => '127.0.0.1', 'user' => 'notes', 'name' => 'porter_notes', 'pass' => ''], 'password_hash' => ''];
+$realSettings = ['db' => ['host' => '127.0.0.1', 'user' => 'notes', 'name' => 'porter_notes', 'pass' => $mysqlSetting], 'password_hash' => $signInHash];
+$preferred = preferred_notes_config([$emptyExample, $realSettings]);
+check(is_array($preferred) && ($preferred['db']['pass'] ?? '') === $mysqlSetting, 'settings that include a database password are used');
+$attempts = database_attempts(['host' => '127.0.0.1', 'port' => '3306', 'name' => 'porter_notes']);
+check(count($attempts) === 2 && $attempts[1]['host'] === 'localhost', '127.0.0.1 also tries the localhost socket');
+check(database_failure_message(1045, '127.0.0.1', 'notes', 'porter_notes', true, false) !== '' && strpos(database_failure_message(1045, '127.0.0.1', 'notes', 'porter_notes', true, false), 'localhost') !== false, 'a rejected login mentions localhost');
+check(strpos(database_failure_message(1049, '127.0.0.1', 'notes', 'porter_notes', false, false), 'porter_notes') !== false, 'a missing database names the database');
+
 if ($failures > 0) {
     fwrite(STDERR, "{$failures} failed\n");
     exit(1);

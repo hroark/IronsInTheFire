@@ -40,6 +40,7 @@ try {
         render('db_error', [
             'bare' => true,
             'pageTitle' => 'Notes unavailable',
+            'detail' => notes_database_detail($e),
         ]);
     } catch (Throwable $renderError) {
         echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Notes unavailable</title></head><body><p>The notes page could not be opened. Check the database user and password in notes/config.php. The database name is porter_notes.</p></body></html>';

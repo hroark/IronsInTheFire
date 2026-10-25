@@ -89,6 +89,64 @@ function config_from_env(array $env): ?array
     ];
 }
 
+function preferred_notes_config(array $candidates): ?array
+{
+    $selected = null;
+    $selectedScore = -1;
+    foreach ($candidates as $candidate) {
+        if (!is_array($candidate)) {
+            continue;
+        }
+        $db = is_array($candidate['db'] ?? null) ? $candidate['db'] : [];
+        $score = 0;
+        if (trim((string) ($db['pass'] ?? '')) !== '') {
+            $score += 2;
+        }
+        if (trim((string) ($candidate['password_hash'] ?? '')) !== '') {
+            $score += 1;
+        }
+        if ($selected === null || $score > $selectedScore) {
+            $selected = $candidate;
+            $selectedScore = $score;
+        }
+    }
+    return $selected;
+}
+
+function database_attempts(array $db): array
+{
+    $attempts = [$db];
+    if ((string) ($db['host'] ?? '') === '127.0.0.1') {
+        $fallback = $db;
+        $fallback['host'] = 'localhost';
+        $attempts[] = $fallback;
+    }
+    return $attempts;
+}
+
+function database_failure_message(int $code, string $host, string $user, string $name, bool $triedLocalhost, bool $connected): string
+{
+    $target = 'User ' . $user . ' at ' . $host . ', database ' . $name . '.';
+    if ($connected) {
+        return 'MySQL accepted the login, and the notes tables could not be created. Import notes/sql/schema.sql into ' . $name . '.';
+    }
+    if ($code === 1045 || $code === 1044) {
+        $localhost = $triedLocalhost ? ' localhost was tried as well.' : '';
+        return 'MySQL rejected ' . $user . ' at ' . $host . '.' . $localhost . ' In notes/config.php, use the host, user, password, and database name from the host panel. On many hosts the host is localhost rather than 127.0.0.1. The database name in the settings is ' . $name . '.';
+    }
+    if ($code === 1049) {
+        return 'MySQL has no database named ' . $name . '. Create that database in the host panel, or set MYSQL_DATABASE to the full name the panel shows.';
+    }
+    if ($code === 2002 || $code === 2003) {
+        $localhost = $triedLocalhost ? ' localhost was tried as well.' : '';
+        return 'The notes page could not reach MySQL at ' . $host . '.' . $localhost . ' Set MYSQL_HOST to the database host from the host panel.';
+    }
+    if ($user === '' || $name === '') {
+        return 'Add the MySQL host, database name, user, and password to notes/config.php.';
+    }
+    return 'The notes database could not be opened. ' . $target;
+}
+
 function mysql_dsn(array $db): string
 {
     $charset = strtolower((string) ($db['charset'] ?? 'utf8mb4'));

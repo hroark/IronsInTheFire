@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/lib/auth.php';
 require dirname(__DIR__) . '/lib/env.php';
 require dirname(__DIR__) . '/lib/helpers.php';
 require dirname(__DIR__) . '/lib/tasks.php';

@@ -48,6 +48,8 @@ try {
 
 function dispatch_notes(): void
 {
+    end_notes_visit_on_entry();
+
     $problems = config_problems();
     if ($problems) {
         render_login();

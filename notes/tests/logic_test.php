@@ -1,10 +1,11 @@
 <?php
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/lib/clip.php';
 require dirname(__DIR__) . '/lib/auth.php';
 require dirname(__DIR__) . '/lib/env.php';
 require dirname(__DIR__) . '/lib/journal.php';
-require dirname(__DIR__) . '/lib/helpers.php';
+require_once dirname(__DIR__) . '/lib/helpers.php';
 require dirname(__DIR__) . '/lib/tasks.php';
 require dirname(__DIR__) . '/lib/github.php';
 require dirname(__DIR__) . '/lib/export.php';
@@ -129,6 +130,22 @@ check(journal_valid_blob('abc+/=_-', 20) === true, 'journal ciphertext uses a li
 check(journal_valid_blob('hello there', 20) === false, 'journal ciphertext rejects spaces');
 check(journal_iterations('310000') === 310000, 'journal key stretching accepts the browser setting');
 check(journal_iterations('1000') === null, 'journal key stretching rejects a short setting');
+
+$captured = capture_fields('https://example.com/path', "  A page\n", "Selected line\r\n");
+check(is_array($captured) && $captured['title'] === 'A page', 'a clipped title keeps the page title');
+check(is_array($captured) && $captured['body'] === "Source: https://example.com/path\n\nSelected line\n", 'a clipped note stores the URL and the selection');
+$untitled = capture_fields('https://example.com/path', '   ', '');
+check(is_array($untitled) && $untitled['title'] === 'https://example.com/path', 'a blank page title falls back to the URL');
+check(is_array($untitled) && $untitled['body'] === "Source: https://example.com/path\n", 'a clip without a selection stores only the URL');
+check(capture_fields('javascript:alert(1)', 'Title', 'text') === null, 'a clipped page must use http or https');
+$longTitle = capture_fields('https://example.com/path', str_repeat('á', 300), str_repeat('b', 100050));
+$titleLength = function_exists('mb_strlen') ? mb_strlen($longTitle['title'], 'UTF-8') : strlen($longTitle['title']);
+check(is_array($longTitle) && $titleLength === 255, 'a clipped title stops at 255 characters');
+check(is_array($longTitle) && strlen($longTitle['body']) < 500000, 'a clipped selection stays within a note body');
+$bookmarklet = clip_bookmarklet('https://example.com/notes/index.php');
+check(strpos($bookmarklet, 'javascript:') === 0, 'the bookmarklet is a javascript URL');
+check(strpos($bookmarklet, 'https://example.com/notes/index.php?view=clip') !== false, 'the bookmarklet opens the clip page');
+check(strpos($bookmarklet, 'notebook') === false, 'the bookmarklet does not choose a notebook');
 
 if ($failures > 0) {
     fwrite(STDERR, "{$failures} failed\n");

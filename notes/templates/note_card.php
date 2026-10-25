@@ -4,7 +4,7 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
     exit;
 }
 ?>
-<article class="notes-card">
+<article class="notes-card" draggable="true" data-note-id="<?= (int) $note['id'] ?>">
     <div class="notes-card-top">
         <div>
             <?php if (!empty($note['pinned'])): ?>
@@ -24,6 +24,29 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
                 <input type="hidden" name="return" value="<?= e($returnQuery) ?>">
                 <button class="btn btn-brand-soft" type="submit"><?= !empty($note['pinned']) ? 'Unpin' : 'Pin' ?></button>
             </form>
+            <?php
+            $moveTargets = [];
+            foreach ($notebooks ?? [] as $moveNotebook) {
+                if ((int) $moveNotebook['id'] !== (int) $note['notebook_id']) {
+                    $moveTargets[] = $moveNotebook;
+                }
+            }
+            ?>
+            <?php if ($moveTargets): ?>
+                <form method="post" action="index.php" class="notes-move-form">
+                    <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+                    <input type="hidden" name="action" value="move-note">
+                    <input type="hidden" name="id" value="<?= (int) $note['id'] ?>">
+                    <input type="hidden" name="return" value="<?= e($returnQuery) ?>">
+                    <label class="visually-hidden" for="move-note-<?= (int) $note['id'] ?>">Move to notebook</label>
+                    <select id="move-note-<?= (int) $note['id'] ?>" class="form-select" name="notebook_id">
+                        <?php foreach ($moveTargets as $moveNotebook): ?>
+                            <option value="<?= (int) $moveNotebook['id'] ?>"><?= e($moveNotebook['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button class="btn btn-brand-soft" type="submit">Move</button>
+                </form>
+            <?php endif; ?>
             <form method="post" action="index.php">
                 <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
                 <input type="hidden" name="action" value="toggle-archive">

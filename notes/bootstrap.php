@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/lib/guard.php';
 require_once __DIR__ . '/lib/env.php';
 require_once __DIR__ . '/lib/helpers.php';
+require_once __DIR__ . '/lib/clip.php';
 require_once __DIR__ . '/lib/tasks.php';
 require_once __DIR__ . '/lib/github.php';
 require_once __DIR__ . '/lib/export.php';

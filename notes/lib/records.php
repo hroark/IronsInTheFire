@@ -76,6 +76,56 @@ function first_notebook_id(PDO $pdo): int
     return (int) $id;
 }
 
+function inbox_notebook(PDO $pdo): array
+{
+    static $cached = null;
+    if (is_array($cached) && notebook_exists($pdo, (int) $cached['id'])) {
+        return $cached;
+    }
+    $stmt = $pdo->prepare('SELECT id, name, sort_order FROM notebooks WHERE name = ? ORDER BY id LIMIT 1');
+    $stmt->execute(['Inbox']);
+    $row = $stmt->fetch();
+    if (!$row) {
+        try {
+            $insert = $pdo->prepare('INSERT INTO notebooks (name, sort_order) VALUES (?, 0)');
+            $insert->execute(['Inbox']);
+            $cached = ['id' => (int) $pdo->lastInsertId(), 'name' => 'Inbox', 'sort_order' => 0];
+            return $cached;
+        } catch (PDOException $e) {
+            $stmt->execute(['Inbox']);
+            $row = $stmt->fetch();
+            if (!$row) {
+                throw $e;
+            }
+        }
+    }
+    $cached = [
+        'id' => (int) $row['id'],
+        'name' => (string) $row['name'],
+        'sort_order' => (int) $row['sort_order'],
+    ];
+    return $cached;
+}
+
+function notebook_is_inbox(PDO $pdo, int $id): bool
+{
+    return $id > 0 && $id === (int) inbox_notebook($pdo)['id'];
+}
+
+function notebook_active_note_count(PDO $pdo, int $id): int
+{
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM notes WHERE notebook_id = ? AND archived = 0');
+    $stmt->execute([$id]);
+    return (int) $stmt->fetchColumn();
+}
+
+function note_move(PDO $pdo, int $id, int $notebookId): bool
+{
+    $stmt = $pdo->prepare('UPDATE notes SET notebook_id = ?, updated_at = NOW() WHERE id = ?');
+    $stmt->execute([$notebookId, $id]);
+    return $stmt->rowCount() > 0 || note_find($pdo, $id) !== null;
+}
+
 function attach_note_tags(PDO $pdo, array $notes): array
 {
     $ids = [];

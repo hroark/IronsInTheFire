@@ -136,6 +136,111 @@
     });
   }
 
+  function readClipPayload(hash) {
+    var raw = String(hash || "");
+    if (raw.charAt(0) === "#") {
+      raw = raw.slice(1);
+    }
+    if (!raw) {
+      return null;
+    }
+    var candidates = [raw];
+    try {
+      candidates.push(decodeURIComponent(raw));
+    } catch (error) {
+      /* The hash may already be decoded. */
+    }
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var payload = JSON.parse(candidates[i]);
+        if (payload && typeof payload.url === "string") {
+          return payload;
+        }
+      } catch (error) {
+        /* Try the other form of the hash. */
+      }
+    }
+    return null;
+  }
+
+  if (readClipPayload(location.hash)) {
+    sessionStorage.setItem("notes-clip-hash", location.hash);
+  }
+
+  document.addEventListener("dragstart", function (event) {
+    var card = event.target.closest ? event.target.closest("[data-note-id]") : null;
+    if (!card) {
+      return;
+    }
+    var control = event.target.closest ? event.target.closest("button, input, select, textarea, label") : null;
+    if (control) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.setData("text/plain", card.getAttribute("data-note-id") || "");
+    event.dataTransfer.effectAllowed = "move";
+    card.classList.add("is-dragging");
+  });
+
+  document.addEventListener("dragover", function (event) {
+    var target = event.target.closest ? event.target.closest("[data-drop-notebook]") : null;
+    if (!target) {
+      return;
+    }
+    event.preventDefault();
+    target.classList.add("is-drop-target");
+  });
+
+  document.addEventListener("dragleave", function (event) {
+    var target = event.target.closest ? event.target.closest("[data-drop-notebook]") : null;
+    if (!target) {
+      return;
+    }
+    if (event.relatedTarget && target.contains(event.relatedTarget)) {
+      return;
+    }
+    target.classList.remove("is-drop-target");
+  });
+
+  document.addEventListener("drop", function (event) {
+    var target = event.target.closest ? event.target.closest("[data-drop-notebook]") : null;
+    if (!target) {
+      return;
+    }
+    event.preventDefault();
+    target.classList.remove("is-drop-target");
+    var noteId = event.dataTransfer.getData("text/plain");
+    var notebookId = target.getAttribute("data-drop-notebook");
+    if (!noteId || !notebookId) {
+      return;
+    }
+    var data = new FormData();
+    data.set("action", "move-note");
+    data.set("csrf", csrf());
+    data.set("id", noteId);
+    data.set("notebook_id", notebookId);
+    data.set("return", location.search.replace(/^\?/, "") || "view=notes");
+    fetch("index.php", {
+      method: "POST",
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+      body: data
+    })
+      .then(function (response) { return response.json(); })
+      .then(function (payload) {
+        if (payload && payload.ok) {
+          window.location.reload();
+        }
+      })
+      .catch(function () {});
+  });
+
+  document.addEventListener("dragend", function () {
+    Array.prototype.forEach.call(document.querySelectorAll(".is-dragging, .is-drop-target"), function (node) {
+      node.classList.remove("is-dragging");
+      node.classList.remove("is-drop-target");
+    });
+  });
+
   document.addEventListener("submit", function (event) {
     var target = event.target;
     if (!target || !target.getAttribute) {

@@ -41,7 +41,17 @@ function handle_login(): void
     login_clear();
     session_regenerate_id(true);
     $_SESSION['notes_auth'] = true;
-    redirect_to('view=notes');
+    redirect_after_login();
+}
+
+function redirect_after_login(): void
+{
+    $next = 'view=notes';
+    if (($_SESSION['after_login'] ?? '') === 'view=clip') {
+        $next = 'view=clip';
+    }
+    unset($_SESSION['after_login']);
+    redirect_to($next);
 }
 
 function handle_choose_password(): void
@@ -68,7 +78,7 @@ function handle_choose_password(): void
     login_clear();
     session_regenerate_id(true);
     $_SESSION['notes_auth'] = true;
-    redirect_to('view=notes');
+    redirect_after_login();
 }
 
 function handle_post(string $action): void
@@ -82,6 +92,12 @@ function handle_post(string $action): void
             break;
         case 'delete-note':
             delete_note_action();
+            break;
+        case 'move-note':
+            move_note_action();
+            break;
+        case 'capture':
+            capture_action();
             break;
         case 'toggle-pin':
             flip_note_action('pinned');
@@ -315,6 +331,56 @@ function github_title_action(): void
     json_out(['ok' => true, 'title' => $title]);
 }
 
+function move_note_action(): void
+{
+    $id = (int) ($_POST['id'] ?? 0);
+    $notebookId = (int) ($_POST['notebook_id'] ?? 0);
+    $return = posted_return('view=notes');
+    if (!note_find(db(), $id) || !notebook_exists(db(), $notebookId)) {
+        if (wants_json()) {
+            json_out(['ok' => false, 'error' => 'That note could not be moved.'], 400);
+        }
+        flash('That note could not be moved.', 'error');
+        redirect_to($return);
+    }
+    note_move(db(), $id, $notebookId);
+    if (wants_json()) {
+        json_out(['ok' => true, 'notebook_id' => $notebookId]);
+    }
+    flash('Note moved.');
+    redirect_to($return);
+}
+
+function capture_action(): void
+{
+    $fields = capture_fields(
+        (string) ($_POST['url'] ?? ''),
+        (string) ($_POST['title'] ?? ''),
+        (string) ($_POST['selection'] ?? '')
+    );
+    if ($fields === null) {
+        if (wants_json()) {
+            json_out(['ok' => false, 'error' => 'Enter a full http or https URL.'], 400);
+        }
+        flash('Enter a full http or https URL.', 'error');
+        redirect_to('view=clip');
+    }
+    $inbox = inbox_notebook(db());
+    $savedId = note_save(db(), 0, (int) $inbox['id'], $fields['title'], $fields['body'], '', false, false);
+    if ($savedId < 1) {
+        if (wants_json()) {
+            json_out(['ok' => false, 'error' => 'That page could not be saved.'], 400);
+        }
+        flash('That page could not be saved.', 'error');
+        redirect_to('view=clip');
+    }
+    if (wants_json()) {
+        json_out(['ok' => true, 'id' => $savedId]);
+    }
+    flash('Saved to Inbox.');
+    redirect_to('view=notes&notebook=' . (int) $inbox['id']);
+}
+
 function create_notebook_action(): void
 {
     $name = clean_notebook_name((string) ($_POST['name'] ?? ''));
@@ -341,6 +407,10 @@ function rename_notebook_action(): void
         flash('That notebook could not be renamed.', 'error');
         redirect_to('view=notes');
     }
+    if (notebook_is_inbox(db(), $id)) {
+        flash('Inbox stays available for pages you clip.', 'error');
+        redirect_to($return);
+    }
     if (notebook_name_taken(db(), $name, $id)) {
         flash('A notebook with that name already exists.', 'error');
         redirect_to($return);
@@ -357,6 +427,10 @@ function delete_notebook_action(): void
     if (!notebook_exists(db(), $id)) {
         flash('That notebook is not available.', 'error');
         redirect_to('view=notes');
+    }
+    if (notebook_is_inbox(db(), $id)) {
+        flash('Inbox stays available for pages you clip.', 'error');
+        redirect_to($return);
     }
     $total = (int) db()->query('SELECT COUNT(*) FROM notebooks')->fetchColumn();
     if ($total <= 1) {

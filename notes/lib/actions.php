@@ -120,6 +120,9 @@ function handle_post(string $action): void
         case 'create-notebook':
             create_notebook_action();
             break;
+        case 'reorder-notebooks':
+            reorder_notebooks_action();
+            break;
         case 'rename-notebook':
             rename_notebook_action();
             break;
@@ -379,6 +382,28 @@ function capture_action(): void
     }
     flash('Saved to Inbox.');
     redirect_to('view=notes&notebook=' . (int) $inbox['id']);
+}
+
+function reorder_notebooks_action(): void
+{
+    $requested = [];
+    foreach (preg_split('/\s*,\s*/', (string) ($_POST['order'] ?? '')) ?: [] as $part) {
+        if ($part === '') {
+            continue;
+        }
+        $requested[] = (int) $part;
+    }
+    if (!notebook_reorder(db(), $requested)) {
+        if (wants_json()) {
+            json_out(['ok' => false, 'error' => 'Those notebooks could not be reordered.'], 400);
+        }
+        flash('Those notebooks could not be reordered.', 'error');
+        redirect_to(posted_return('view=notes'));
+    }
+    if (wants_json()) {
+        json_out(['ok' => true]);
+    }
+    redirect_to(posted_return('view=notes'));
 }
 
 function create_notebook_action(): void

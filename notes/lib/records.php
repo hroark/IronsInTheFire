@@ -55,6 +55,55 @@ function notebook_rename(PDO $pdo, int $id, string $name): void
     $stmt->execute([$name, $id]);
 }
 
+function notebook_id_order(array $existingIds, array $requestedIds): ?array
+{
+    if ($existingIds === [] || count($existingIds) !== count($requestedIds)) {
+        return null;
+    }
+    $known = [];
+    foreach ($existingIds as $id) {
+        $known[(int) $id] = true;
+    }
+    $order = [];
+    foreach ($requestedIds as $id) {
+        $id = (int) $id;
+        if ($id < 1 || !isset($known[$id]) || isset($order[$id])) {
+            return null;
+        }
+        $order[$id] = $id;
+    }
+    if (count($order) !== count($known)) {
+        return null;
+    }
+    return array_values($order);
+}
+
+function notebook_reorder(PDO $pdo, array $requestedIds): bool
+{
+    $existing = [];
+    foreach (notebooks_all($pdo) as $notebook) {
+        $existing[] = $notebook['id'];
+    }
+    $order = notebook_id_order($existing, $requestedIds);
+    if ($order === null) {
+        return false;
+    }
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare('UPDATE notebooks SET sort_order = ? WHERE id = ?');
+        foreach ($order as $index => $id) {
+            $stmt->execute([$index, $id]);
+        }
+        $pdo->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
 function notebook_counts(PDO $pdo, int $id): array
 {
     $notes = $pdo->prepare('SELECT COUNT(*) FROM notes WHERE notebook_id = ?');

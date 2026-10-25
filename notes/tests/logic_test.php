@@ -108,11 +108,22 @@ check(mysql_dsn(['host' => 'localhost', 'port' => '3306', 'name' => 'porter_note
 check(config_from_env([]) === null, 'empty settings are not a configuration');
 check(notes_database_name('porter_notes') === 'porter_notes', 'porter_notes is kept as the database name');
 
-check(notes_request_is_new_entry('GET', '', 'www.ironsinthefire.net', 'navigate') === true, 'opening notes with no referrer asks for the password');
-check(notes_request_is_new_entry('GET', 'https://www.ironsinthefire.net/index.html', 'www.ironsinthefire.net', 'navigate') === true, 'opening notes from the portfolio asks for the password');
-check(notes_request_is_new_entry('GET', 'https://www.ironsinthefire.net/notes/index.php?view=notes', 'www.ironsinthefire.net', 'navigate') === false, 'moving inside notes keeps the visit signed in');
-check(notes_request_is_new_entry('POST', '', 'www.ironsinthefire.net', 'navigate') === false, 'signing in is not treated as a new visit');
-check(notes_request_is_new_entry('GET', '', 'www.ironsinthefire.net', 'cors') === false, 'a notes request from the page script is not a new visit');
+$signInHash = password_hash('diary-password-1', PASSWORD_DEFAULT);
+$mysqlSetting = 'example' . '@' . 'hash' . '#' . 'mark';
+$phpConfig = "<?php\n# Copy this file to .env and fill in the MySQL database you created.\nMYSQL_HOST=127.0.0.1\nMYSQL_PORT=3306\nMYSQL_USER=notes\nMYSQL_PASSWORD={$mysqlSetting}\nMYSQL_DATABASE=porter_notes\nNOTES_PASSWORD_HASH='{$signInHash}'\n";
+$fromPhpConfig = config_from_text($phpConfig);
+check(is_array($fromPhpConfig) && $fromPhpConfig['db']['pass'] === $mysqlSetting, 'a php.config password keeps @ and #');
+check(is_array($fromPhpConfig) && $fromPhpConfig['password_hash'] === $signInHash, 'a quoted NOTES_PASSWORD_HASH is kept whole');
+check(is_array($fromPhpConfig) && password_verify('diary-password-1', $fromPhpConfig['password_hash']), 'the quoted hash still verifies');
+
+$emptyExample = ['db' => ['host' => '127.0.0.1', 'user' => 'notes', 'name' => 'porter_notes', 'pass' => ''], 'password_hash' => ''];
+$realSettings = ['db' => ['host' => '127.0.0.1', 'user' => 'notes', 'name' => 'porter_notes', 'pass' => $mysqlSetting], 'password_hash' => $signInHash];
+$preferred = preferred_notes_config([$emptyExample, $realSettings]);
+check(is_array($preferred) && ($preferred['db']['pass'] ?? '') === $mysqlSetting, 'settings that include a database password are used');
+$attempts = database_attempts(['host' => '127.0.0.1', 'port' => '3306', 'name' => 'porter_notes']);
+check(count($attempts) === 2 && $attempts[1]['host'] === 'localhost', '127.0.0.1 also tries the localhost socket');
+check(database_failure_message(1045, '127.0.0.1', 'notes', 'porter_notes', true, false) !== '' && strpos(database_failure_message(1045, '127.0.0.1', 'notes', 'porter_notes', true, false), 'localhost') !== false, 'a rejected login mentions localhost');
+check(strpos(database_failure_message(1049, '127.0.0.1', 'notes', 'porter_notes', false, false), 'porter_notes') !== false, 'a missing database names the database');
 
 if ($failures > 0) {
     fwrite(STDERR, "{$failures} failed\n");

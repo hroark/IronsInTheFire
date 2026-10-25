@@ -11,6 +11,8 @@
 *.sln.docstates
 *.env
 notes/config.php
+php.config
+notes/php.config
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

@@ -6,14 +6,15 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
     exit;
 }
 
-// Copy this file to config.php and fill in the values.
+// Copy this file to config.php and fill in the values from the hosting panel.
+// Use the host, database name, and user exactly as that panel lists them.
+// Shared hosts usually want localhost, and the names often start with the account name.
+// Keep the database password in single quotes when it contains #.
 // A .env file or folder is not required.
-// The database name is porter_notes. Leave that name as it is.
-// On the first visit, the notes page asks you to choose a sign-in password.
 
 return [
     'db' => [
-        'host' => '127.0.0.1',
+        'host' => 'localhost',
         'port' => '3306',
         'name' => 'porter_notes',
         'user' => 'notes',

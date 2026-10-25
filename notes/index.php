@@ -1,20 +1,50 @@
 <?php
 declare(strict_types=1);
 
+$notesResponseSent = false;
+register_shutdown_function(static function () use (&$notesResponseSent): void {
+    if ($notesResponseSent) {
+        return;
+    }
+    $error = error_get_last();
+    if (!is_array($error) || !in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        return;
+    }
+    error_log('Notes fatal: ' . $error['message']);
+    if (headers_sent()) {
+        return;
+    }
+    http_response_code(500);
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Notes unavailable</title></head><body><p>The notes page could not be opened. Check the database user and password in notes/config.php. The database name is porter_notes.</p></body></html>';
+});
+
 require __DIR__ . '/bootstrap.php';
 
-send_security_headers();
-start_notes_session();
-
 try {
+    send_security_headers();
+    start_notes_session();
     dispatch_notes();
-} catch (PDOException $e) {
-    error_log('Notes database error: ' . $e->getMessage());
-    http_response_code(500);
-    render('db_error', [
-        'bare' => true,
-        'pageTitle' => 'Notes unavailable',
-    ]);
+    $notesResponseSent = true;
+} catch (Throwable $e) {
+    $notesResponseSent = true;
+    error_log('Notes error: ' . $e->getMessage());
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: text/html; charset=UTF-8');
+    }
+    try {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+        render('db_error', [
+            'bare' => true,
+            'pageTitle' => 'Notes unavailable',
+            'detail' => notes_database_detail($e),
+        ]);
+    } catch (Throwable $renderError) {
+        echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Notes unavailable</title></head><body><p>The notes page could not be opened. Check the database user and password in notes/config.php. The database name is porter_notes.</p></body></html>';
+    }
 }
 
 function dispatch_notes(): void

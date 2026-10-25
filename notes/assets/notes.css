@@ -363,6 +363,22 @@
   margin-right: 0.4rem;
 }
 
+.markdown-preview .mermaid-diagram {
+  margin: 0.8rem 0;
+  overflow: auto;
+}
+
+.markdown-preview .mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown-preview .mermaid-error {
+  margin: 0 0 0.35rem;
+  color: #8a2b2b;
+  font-size: 0.92rem;
+}
+
 .notes-delete {
   margin-top: 1rem;
 }

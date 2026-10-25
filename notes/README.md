@@ -23,7 +23,7 @@ The hosted site reads `public_html/notes/config.php`. There is no `.env` folder.
 
 ## Using it
 
-- Notes are Markdown. The preview is rendered in the browser and sanitized there.
+- Notes are Markdown. The preview is rendered in the browser and sanitized there. A fenced `mermaid` block is drawn as a diagram in that preview. The saved note stays Markdown.
 - A task is a line such as `- [ ] Read the RFC`. Checking it in the preview, or on Open tasks, rewrites that line and saves the note.
 - Tags are shared by notes and links. Separate names with commas. `PHP` and `php` are the same tag. A tag is removed when nothing uses it.
 - Archived notes leave All notes, notebook lists, search, and Open tasks. They still appear under their tags, and they download under `archive/` in the zip.

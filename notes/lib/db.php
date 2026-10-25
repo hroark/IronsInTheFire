@@ -114,6 +114,7 @@ function ensure_notes_schema(PDO $pdo): void
         );
     }
     ensure_journal_schema($pdo);
+    inbox_notebook($pdo);
     $ready = true;
 }
 

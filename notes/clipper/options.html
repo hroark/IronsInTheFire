@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Save to Inbox</title>
+  <style>
+    body { font: 16px/1.45 system-ui, sans-serif; margin: 2rem; max-width: 36rem; }
+    label { display: block; font-weight: 700; margin-bottom: 0.4rem; }
+    input { width: 100%; box-sizing: border-box; padding: 0.5rem; }
+    button { margin-top: 0.8rem; }
+    p { color: #333; }
+  </style>
+</head>
+<body>
+  <h1>Save to Inbox</h1>
+  <p>Paste the notes address shown at the top of Inbox. Chrome: open Extensions, turn on Developer mode, and load this folder. Firefox: open Debugging, choose This Firefox, and load <code>manifest.json</code>.</p>
+  <form id="options">
+    <label for="notes-url">Notes address</label>
+    <input id="notes-url" name="notesUrl" type="url" placeholder="https://example.com/notes" required>
+    <button type="submit">Save</button>
+  </form>
+  <p id="saved" hidden>Saved. Click the extension on a page to send it to Inbox.</p>
+  <script src="options.js"></script>
+</body>
+</html>

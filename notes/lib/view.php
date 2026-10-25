@@ -29,6 +29,9 @@ function render_login(?string $error = null, bool $choosePassword = false): void
 function render_app(string $template, array $vars = []): void
 {
     $pdo = db();
+    $inbox = inbox_notebook($pdo);
+    $vars['inbox'] = $inbox;
+    $vars['inboxCount'] = notebook_active_note_count($pdo, (int) $inbox['id']);
     $vars['notebooks'] = notebooks_all($pdo);
     $vars['tagList'] = tags_with_counts($pdo);
     $vars['bare'] = false;
@@ -175,6 +178,15 @@ function render_current_view(): void
             'links' => $query === '' ? [] : search_links($pdo, $query),
             'active' => $active,
             'returnQuery' => 'view=search&q=' . rawurlencode($query),
+        ]);
+        return;
+    }
+
+    if ($view === 'clip') {
+        $active['view'] = 'clip';
+        render_app('clip', [
+            'pageTitle' => 'Save to Inbox',
+            'active' => $active,
         ]);
         return;
     }

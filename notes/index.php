@@ -82,6 +82,11 @@ function dispatch_notes(): void
     }
 
     if (!is_logged_in()) {
+        if ($_SERVER['REQUEST_METHOD'] === 'GET' && (string) ($_GET['view'] ?? '') === 'clip') {
+            $_SESSION['after_login'] = 'view=clip';
+        } else {
+            unset($_SESSION['after_login']);
+        }
         render_login();
         return;
     }

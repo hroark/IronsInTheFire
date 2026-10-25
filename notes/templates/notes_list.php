@@ -12,7 +12,17 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
     <a class="btn btn-brand" href="index.php?view=edit<?= $notebookId ? '&notebook=' . (int) $notebookId : '' ?>">New note</a>
 </div>
 
-<?php if ($notebookId && empty($archivedView)): ?>
+<?php $isInbox = $notebookId && (int) $notebookId === (int) ($inbox['id'] ?? 0); ?>
+<?php if ($isInbox): ?>
+    <div class="notes-manage notes-clip-help">
+        <div>
+            <p class="notes-meta">Clipped pages land here. Open a note to add to it, or move it into another notebook.</p>
+            <p class="notes-meta">Drag <a class="notes-bookmarklet" href="<?= e(clip_bookmarklet(notes_index_url())) ?>">Save to Inbox</a> to the bookmarks bar. On a page, select text and click it.</p>
+            <p class="notes-meta">The extension is in <code>notes/clipper</code>. In its options, paste this address: <code><?= e(notes_index_url()) ?></code></p>
+        </div>
+    </div>
+<?php endif; ?>
+<?php if ($notebookId && empty($archivedView) && !$isInbox): ?>
     <?php $counts = notebook_counts(db(), (int) $notebookId); ?>
     <div class="notes-manage">
         <form method="post" action="index.php" class="notes-inline-form">

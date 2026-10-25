@@ -255,6 +255,38 @@
   gap: 0.4rem;
 }
 
+.notes-move-form {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.notes-move-form select {
+  width: auto;
+  max-width: 12rem;
+}
+
+.notes-card[draggable="true"] {
+  cursor: grab;
+}
+
+.notes-card.is-dragging {
+  opacity: 0.55;
+}
+
+.notes-side-link.is-drop-target {
+  outline: 2px solid var(--color-accent);
+  background: var(--color-highlight);
+}
+
+.notes-clip-help {
+  display: block;
+}
+
+.notes-bookmarklet {
+  font-weight: 700;
+}
+
 .notes-pin {
   display: inline-block;
   margin-bottom: 0.25rem;

@@ -59,12 +59,53 @@
     return meta ? meta.getAttribute("content") : "";
   }
 
+  var previewGeneration = 0;
+
+  function renderMermaid(preview) {
+    if (!window.mermaid) {
+      return;
+    }
+    var blocks = preview.querySelectorAll("code.language-mermaid");
+    if (!blocks.length) {
+      return;
+    }
+    window.mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      suppressErrorRendering: true,
+      theme: "neutral"
+    });
+    var generation = ++previewGeneration;
+    Array.prototype.forEach.call(blocks, function (block, index) {
+      var source = block.textContent || "";
+      var host = block.parentNode && block.parentNode.tagName === "PRE" ? block.parentNode : block;
+      window.mermaid.render("mermaid-" + generation + "-" + index, source).then(function (result) {
+        if (generation !== previewGeneration || !host.parentNode) {
+          return;
+        }
+        var diagram = document.createElement("div");
+        diagram.className = "mermaid-diagram";
+        diagram.innerHTML = result.svg;
+        host.parentNode.replaceChild(diagram, host);
+      }).catch(function () {
+        if (generation !== previewGeneration || !host.parentNode) {
+          return;
+        }
+        var error = document.createElement("p");
+        error.className = "mermaid-error";
+        error.textContent = "This diagram could not be drawn.";
+        host.parentNode.insertBefore(error, host);
+      });
+    });
+  }
+
   function renderPreview() {
     var preview = document.getElementById("note-preview");
     var body = document.getElementById("note-body");
     if (!preview || !body || !window.marked || !window.DOMPurify) {
       return;
     }
+    previewGeneration += 1;
     var raw = window.marked.parse(body.value, { gfm: true, breaks: false });
     preview.innerHTML = window.DOMPurify.sanitize(raw, {
       ADD_TAGS: ["input"],
@@ -81,6 +122,7 @@
         box.removeAttribute("data-task-index");
       }
     });
+    renderMermaid(preview);
   }
 
   var body = document.getElementById("note-body");

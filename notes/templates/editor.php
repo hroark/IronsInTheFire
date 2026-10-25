@@ -8,9 +8,9 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
     <div>
         <h1><?= $note['id'] ? 'Edit note' : 'New note' ?></h1>
         <?php if (!empty($note['updated_at'])): ?>
-            <p>Updated <?= e(format_time($note['updated_at'])) ?></p>
+            <p>Updated <?= e(format_time($note['updated_at'])) ?>. A mermaid block is drawn in the preview.</p>
         <?php else: ?>
-            <p>Markdown is saved as you wrote it. Check a task in the preview to update that line.</p>
+            <p>Markdown is saved as you wrote it. A mermaid block is drawn in the preview. Check a task in the preview to update that line.</p>
         <?php endif; ?>
     </div>
     <?php if (!empty($note['id'])): ?>

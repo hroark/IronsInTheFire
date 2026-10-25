@@ -46,6 +46,49 @@ function is_logged_in(): bool
     return !empty($_SESSION['notes_auth']);
 }
 
+function notes_referrer_is_notes(string $referer, string $host): bool
+{
+    if ($referer === '' || $host === '') {
+        return false;
+    }
+    $parts = parse_url($referer);
+    if (!is_array($parts)) {
+        return false;
+    }
+    $refererHost = strtolower((string) ($parts['host'] ?? ''));
+    $siteHost = strtolower($host);
+    $siteHost = preg_replace('/:\d+$/', '', $siteHost) ?? $siteHost;
+    if ($refererHost === '' || $refererHost !== $siteHost) {
+        return false;
+    }
+    $path = (string) ($parts['path'] ?? '/');
+    return $path === '/notes' || str_starts_with($path, '/notes/');
+}
+
+function notes_request_is_new_entry(string $method, string $referer, string $host, string $fetchMode): bool
+{
+    if (strtoupper($method) !== 'GET') {
+        return false;
+    }
+    if ($fetchMode !== '' && strcasecmp($fetchMode, 'navigate') !== 0) {
+        return false;
+    }
+    return !notes_referrer_is_notes($referer, $host);
+}
+
+function end_notes_visit_on_entry(): void
+{
+    if (!notes_request_is_new_entry(
+        (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'),
+        (string) ($_SERVER['HTTP_REFERER'] ?? ''),
+        (string) ($_SERVER['HTTP_HOST'] ?? ''),
+        (string) ($_SERVER['HTTP_SEC_FETCH_MODE'] ?? '')
+    )) {
+        return;
+    }
+    unset($_SESSION['notes_auth']);
+}
+
 function configured_password_hash(): string
 {
     $config = config() ?? [];

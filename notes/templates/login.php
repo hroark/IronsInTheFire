@@ -30,7 +30,7 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
             <button class="btn btn-brand" type="submit">Save password</button>
         </form>
     <?php else: ?>
-        <p class="section-copy">Sign in with the site password. Notes stay on this server.</p>
+        <p class="section-copy">Enter the notes password each time you open this section.</p>
         <?php if (!empty($error)): ?>
             <p class="notes-flash is-error" role="alert"><?= e($error) ?></p>
         <?php endif; ?>

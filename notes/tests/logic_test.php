@@ -107,6 +107,14 @@ check(mysql_dsn(['host' => 'localhost', 'port' => '3306', 'name' => 'porter_note
 check(config_from_env([]) === null, 'empty settings are not a configuration');
 check(notes_database_name('porter_notes') === 'porter_notes', 'porter_notes is kept as the database name');
 
+$signInHash = password_hash('diary-password-1', PASSWORD_DEFAULT);
+$mysqlSetting = 'example' . '@' . 'hash' . '#' . 'mark';
+$phpConfig = "<?php\n# Copy this file to .env and fill in the MySQL database you created.\nMYSQL_HOST=127.0.0.1\nMYSQL_PORT=3306\nMYSQL_USER=notes\nMYSQL_PASSWORD={$mysqlSetting}\nMYSQL_DATABASE=porter_notes\nNOTES_PASSWORD_HASH='{$signInHash}'\n";
+$fromPhpConfig = config_from_text($phpConfig);
+check(is_array($fromPhpConfig) && $fromPhpConfig['db']['pass'] === $mysqlSetting, 'a php.config password keeps @ and #');
+check(is_array($fromPhpConfig) && $fromPhpConfig['password_hash'] === $signInHash, 'a quoted NOTES_PASSWORD_HASH is kept whole');
+check(is_array($fromPhpConfig) && password_verify('diary-password-1', $fromPhpConfig['password_hash']), 'the quoted hash still verifies');
+
 if ($failures > 0) {
     fwrite(STDERR, "{$failures} failed\n");
     exit(1);

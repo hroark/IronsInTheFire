@@ -1,7 +1,7 @@
 Options -Indexes
 DirectoryIndex index.php
 
-<FilesMatch "^(config\.php|config\.example\.php)$">
+<FilesMatch "^(config\.php|config\.example\.php|php\.config)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>

@@ -46,6 +46,16 @@ function notes_database_name(string $name): string
     return $name;
 }
 
+function config_from_text(string $contents): ?array
+{
+    $contents = preg_replace('/^\xEF\xBB\xBF/', '', $contents) ?? $contents;
+    if (trim($contents) === '') {
+        return null;
+    }
+    $contents = preg_replace('/<\?(?:php)?|\?>/i', '', $contents) ?? $contents;
+    return config_from_env(read_env_text($contents));
+}
+
 function config_from_env(array $env): ?array
 {
     $user = trim((string) ($env['MYSQL_USER'] ?? ''));

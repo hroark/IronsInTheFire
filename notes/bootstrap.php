@@ -22,8 +22,10 @@ function config(): ?array
         return $config;
     }
     $loaded = true;
-    $path = __DIR__ . '/config.php';
-    if (is_file($path)) {
+    foreach ([__DIR__ . '/config.php', __DIR__ . '/php.config', dirname(__DIR__) . '/php.config'] as $path) {
+        if (!is_file($path)) {
+            continue;
+        }
         $config = config_from_file($path);
         if ($config !== null) {
             return $config;
@@ -38,22 +40,27 @@ function config_from_file(string $path): ?array
     if (!is_string($contents) || trim($contents) === '') {
         return null;
     }
-    if (preg_match('/<\?php\b/i', $contents)) {
-        ob_start();
+    $phpSettings = preg_match('/<\?php\b/i', $contents) === 1 && preg_match('/\breturn\s*\[/', $contents) === 1;
+    if ($phpSettings) {
         try {
+            ob_start();
             $value = require $path;
+        } catch (Throwable $e) {
+            error_log('Notes settings could not be read as PHP from ' . basename($path) . '.');
+            $value = null;
         } finally {
-            ob_end_clean();
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
         }
-        if (!is_array($value)) {
-            return null;
+        if (is_array($value)) {
+            if (isset($value['db']) && is_array($value['db'])) {
+                $value['db']['name'] = notes_database_name((string) ($value['db']['name'] ?? ''));
+            }
+            return $value;
         }
-        if (isset($value['db']) && is_array($value['db'])) {
-            $value['db']['name'] = notes_database_name((string) ($value['db']['name'] ?? ''));
-        }
-        return $value;
     }
-    return config_from_env(read_env_text($contents));
+    return config_from_text($contents);
 }
 
 function config_problems(): array

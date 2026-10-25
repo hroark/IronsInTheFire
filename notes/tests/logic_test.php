@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/lib/auth.php';
 require dirname(__DIR__) . '/lib/env.php';
 require dirname(__DIR__) . '/lib/helpers.php';
 require dirname(__DIR__) . '/lib/tasks.php';
@@ -106,6 +107,12 @@ check(is_array($parsed) && mysql_dsn($parsed['db']) === 'mysql:host=127.0.0.1;po
 check(mysql_dsn(['host' => 'localhost', 'port' => '3306', 'name' => 'porter_notes']) === 'mysql:host=localhost;dbname=porter_notes;charset=utf8mb4', 'localhost keeps the default socket');
 check(config_from_env([]) === null, 'empty settings are not a configuration');
 check(notes_database_name('porter_notes') === 'porter_notes', 'porter_notes is kept as the database name');
+
+check(notes_request_is_new_entry('GET', '', 'www.ironsinthefire.net', 'navigate') === true, 'opening notes with no referrer asks for the password');
+check(notes_request_is_new_entry('GET', 'https://www.ironsinthefire.net/index.html', 'www.ironsinthefire.net', 'navigate') === true, 'opening notes from the portfolio asks for the password');
+check(notes_request_is_new_entry('GET', 'https://www.ironsinthefire.net/notes/index.php?view=notes', 'www.ironsinthefire.net', 'navigate') === false, 'moving inside notes keeps the visit signed in');
+check(notes_request_is_new_entry('POST', '', 'www.ironsinthefire.net', 'navigate') === false, 'signing in is not treated as a new visit');
+check(notes_request_is_new_entry('GET', '', 'www.ironsinthefire.net', 'cors') === false, 'a notes request from the page script is not a new visit');
 
 if ($failures > 0) {
     fwrite(STDERR, "{$failures} failed\n");

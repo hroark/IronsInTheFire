@@ -31,4 +31,4 @@ The hosted site reads `public_html/notes/config.php`. There is no `.env` folder.
 - Leave a GitHub link title blank to fill it from the public GitHub API. Private GitHub URLs keep whatever title you type. Nothing is written back to GitHub.
 - Download the open note as Markdown, or use Download zip for every notebook. Each note starts with title, notebook, tags, and dates. Each notebook folder includes `links.md` when that notebook has links or current notes.
 
-Sign-in allows five failures, then waits fifteen minutes. The password check uses `password_verify`. Forms send a session token so another site cannot submit them for you.
+Sign-in allows five failures, then waits fifteen minutes. The password check uses `password_verify`. Opening the notes section from the rest of the site, a bookmark, or a new visit asks for the password again. Moving between notes pages in that visit does not. Forms send a session token so another site cannot submit them for you.

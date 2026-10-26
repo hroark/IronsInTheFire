@@ -28,13 +28,6 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
 <?php endif; ?>
 <div class="notes-list">
     <?php foreach ($links as $item): ?>
-        <article class="notes-card">
-            <h2 class="notes-card-title"><a href="<?= e($item['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e($item['title']) ?></a></h2>
-            <p class="notes-meta"><?= e($item['notebook']) ?> · Saved <?= e(format_time($item['created_at'])) ?></p>
-            <p class="notes-url"><?= e($item['url']) ?></p>
-            <?php if (trim((string) $item['note']) !== ''): ?>
-                <p class="notes-excerpt"><?= e($item['note']) ?></p>
-            <?php endif; ?>
-        </article>
+        <?php include __DIR__ . '/link_card.php'; ?>
     <?php endforeach; ?>
 </div>

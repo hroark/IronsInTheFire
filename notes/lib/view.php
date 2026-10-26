@@ -164,6 +164,23 @@ function render_current_view(): void
             'links' => links_list($pdo, null),
             'link' => $link,
             'active' => $active,
+            'returnQuery' => 'view=links',
+        ]);
+        return;
+    }
+
+    if ($view === 'link') {
+        $link = link_find($pdo, (int) ($_GET['id'] ?? 0));
+        if (!$link) {
+            flash('That link is not available.', 'error');
+            redirect_to('view=links');
+        }
+        $active['view'] = 'links';
+        render_app('link', [
+            'pageTitle' => $link['title'],
+            'link' => $link,
+            'active' => $active,
+            'returnQuery' => 'view=link&id=' . $link['id'],
         ]);
         return;
     }

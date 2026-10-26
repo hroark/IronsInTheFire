@@ -7,6 +7,7 @@ require_once __DIR__ . '/lib/helpers.php';
 require_once __DIR__ . '/lib/clip.php';
 require_once __DIR__ . '/lib/tasks.php';
 require_once __DIR__ . '/lib/github.php';
+require_once __DIR__ . '/lib/snapshot.php';
 require_once __DIR__ . '/lib/export.php';
 require_once __DIR__ . '/lib/tags.php';
 require_once __DIR__ . '/lib/auth.php';

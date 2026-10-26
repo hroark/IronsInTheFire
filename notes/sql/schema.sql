@@ -47,9 +47,19 @@ CREATE TABLE IF NOT EXISTS links (
   url VARCHAR(2048) NOT NULL,
   title VARCHAR(255) NOT NULL,
   note TEXT NOT NULL,
+  page_title VARCHAR(255) NOT NULL DEFAULT '',
+  page_description VARCHAR(1000) NOT NULL DEFAULT '',
+  site_name VARCHAR(255) NOT NULL DEFAULT '',
+  snapshot_text MEDIUMTEXT NULL,
+  preview_path VARCHAR(255) NULL,
+  http_status SMALLINT NULL,
+  link_state VARCHAR(20) NOT NULL DEFAULT 'unknown',
+  checked_at DATETIME NULL,
+  captured_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_links_notebook (notebook_id, created_at),
+  KEY idx_links_checked (checked_at, id),
   CONSTRAINT fk_links_notebook FOREIGN KEY (notebook_id) REFERENCES notebooks (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

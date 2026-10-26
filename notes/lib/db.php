@@ -114,41 +114,38 @@ function ensure_notes_schema(PDO $pdo): void
         );
     }
     ensure_journal_schema($pdo);
-    ensure_link_snapshot_columns($pdo);
+    ensure_upload_schema($pdo);
     inbox_notebook($pdo);
     $ready = true;
 }
 
-function ensure_link_snapshot_columns(PDO $pdo): void
+function ensure_upload_schema(PDO $pdo): void
 {
-    $present = [];
-    foreach ($pdo->query('SHOW COLUMNS FROM links') as $row) {
-        $present[(string) $row['Field']] = true;
-    }
-    $columns = [
-        'page_title' => "ALTER TABLE links ADD COLUMN page_title VARCHAR(255) NOT NULL DEFAULT '' AFTER note",
-        'page_description' => "ALTER TABLE links ADD COLUMN page_description VARCHAR(1000) NOT NULL DEFAULT '' AFTER page_title",
-        'site_name' => "ALTER TABLE links ADD COLUMN site_name VARCHAR(255) NOT NULL DEFAULT '' AFTER page_description",
-        'snapshot_text' => 'ALTER TABLE links ADD COLUMN snapshot_text MEDIUMTEXT NULL AFTER site_name',
-        'preview_path' => 'ALTER TABLE links ADD COLUMN preview_path VARCHAR(255) NULL AFTER snapshot_text',
-        'http_status' => 'ALTER TABLE links ADD COLUMN http_status SMALLINT NULL AFTER preview_path',
-        'link_state' => "ALTER TABLE links ADD COLUMN link_state VARCHAR(20) NOT NULL DEFAULT 'unknown' AFTER http_status",
-        'checked_at' => 'ALTER TABLE links ADD COLUMN checked_at DATETIME NULL AFTER link_state',
-        'captured_at' => 'ALTER TABLE links ADD COLUMN captured_at DATETIME NULL AFTER checked_at',
-    ];
-    foreach ($columns as $name => $sql) {
-        if (!isset($present[$name])) {
-            $pdo->exec($sql);
-            $present[$name] = true;
-        }
-    }
-    $indexes = [];
-    foreach ($pdo->query('SHOW INDEX FROM links') as $row) {
-        $indexes[(string) $row['Key_name']] = true;
-    }
-    if (!isset($indexes['idx_links_checked'])) {
-        $pdo->exec('ALTER TABLE links ADD KEY idx_links_checked (checked_at, id)');
-    }
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS upload_folders (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            parent_id INT UNSIGNED NULL,
+            name VARCHAR(120) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_upload_folders_parent (parent_id, name),
+            CONSTRAINT fk_upload_folders_parent FOREIGN KEY (parent_id) REFERENCES upload_folders (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS uploads (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            folder_id INT UNSIGNED NULL,
+            original_name VARCHAR(180) NOT NULL,
+            stored_name VARCHAR(80) NOT NULL,
+            mime VARCHAR(160) NOT NULL,
+            byte_size INT UNSIGNED NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_uploads_folder (folder_id, created_at),
+            CONSTRAINT fk_uploads_folder FOREIGN KEY (folder_id) REFERENCES upload_folders (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
 }
 
 function run_sql_script(PDO $pdo, string $sql): void

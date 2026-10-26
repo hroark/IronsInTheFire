@@ -3,7 +3,7 @@ DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteRule ^snapshots(/|$) - [F,L]
+  RewriteRule ^uploads(/|$) - [F,L]
 </IfModule>
 
 <FilesMatch "^(config\.php|config\.example\.php|php\.config)$">

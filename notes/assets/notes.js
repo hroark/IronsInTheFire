@@ -423,4 +423,81 @@
         .catch(function () {});
     });
   }
+
+  function draggedFiles(event) {
+    var types = event.dataTransfer && event.dataTransfer.types ? event.dataTransfer.types : [];
+    return Array.prototype.indexOf.call(types, "Files") !== -1;
+  }
+
+  function submitDroppedFiles(fileList, folderId) {
+    var form = document.getElementById("file-drop");
+    if (!form || !fileList || !fileList.length || typeof DataTransfer === "undefined") {
+      return;
+    }
+    var input = form.querySelector('input[type="file"]');
+    var folder = form.querySelector('[name="folder_id"]');
+    if (!input) {
+      return;
+    }
+    var transfer = new DataTransfer();
+    Array.prototype.forEach.call(fileList, function (file) {
+      transfer.items.add(file);
+    });
+    input.files = transfer.files;
+    if (folder) {
+      folder.value = String(folderId);
+    }
+    form.submit();
+  }
+
+  var dropZone = document.getElementById("file-drop");
+  if (dropZone) {
+    ["dragenter", "dragover"].forEach(function (name) {
+      dropZone.addEventListener(name, function (event) {
+        if (!draggedFiles(event)) {
+          return;
+        }
+        event.preventDefault();
+        dropZone.classList.add("is-hot");
+      });
+    });
+    dropZone.addEventListener("dragleave", function () {
+      dropZone.classList.remove("is-hot");
+    });
+    dropZone.addEventListener("drop", function (event) {
+      if (!draggedFiles(event)) {
+        return;
+      }
+      event.preventDefault();
+      var folder = dropZone.querySelector('[name="folder_id"]');
+      submitDroppedFiles(event.dataTransfer.files, folder ? folder.value : "0");
+    });
+    var browse = document.getElementById("file-browse");
+    if (browse) {
+      browse.addEventListener("change", function () {
+        if (browse.files && browse.files.length) {
+          dropZone.submit();
+        }
+      });
+    }
+    Array.prototype.forEach.call(document.querySelectorAll("[data-folder-id]"), function (link) {
+      link.addEventListener("dragover", function (event) {
+        if (!draggedFiles(event)) {
+          return;
+        }
+        event.preventDefault();
+        link.classList.add("is-hot");
+      });
+      link.addEventListener("dragleave", function () {
+        link.classList.remove("is-hot");
+      });
+      link.addEventListener("drop", function (event) {
+        if (!draggedFiles(event)) {
+          return;
+        }
+        event.preventDefault();
+        submitDroppedFiles(event.dataTransfer.files, link.getAttribute("data-folder-id") || "0");
+      });
+    });
+  }
 })();

@@ -104,6 +104,10 @@ function dispatch_notes(): void
         journal_data_action();
         return;
     }
+    if ($action === 'file') {
+        file_download_action((int) ($_GET['id'] ?? 0));
+        return;
+    }
 
     render_current_view();
 }

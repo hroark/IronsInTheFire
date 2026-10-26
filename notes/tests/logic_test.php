@@ -11,6 +11,7 @@ require_once dirname(__DIR__) . '/lib/tasks.php';
 require dirname(__DIR__) . '/lib/github.php';
 require dirname(__DIR__) . '/lib/export.php';
 require_once dirname(__DIR__) . '/lib/tags.php';
+require_once dirname(__DIR__) . '/lib/uploads.php';
 
 $failures = 0;
 
@@ -153,6 +154,33 @@ check($reordered === [3, 1, 2], 'notebook order accepts the same folders in a ne
 check(notebook_id_order([1, 2], [1]) === null, 'notebook order rejects a missing folder');
 check(notebook_id_order([1, 2], [1, 2, 9]) === null, 'notebook order rejects an unknown folder');
 check(notebook_id_order([1, 2], [1, 1]) === null, 'notebook order rejects a repeated folder');
+
+$jpeg = "\xFF\xD8\xFF\x00rest";
+$png = "\x89PNG\r\n\x1A\nrest";
+check(upload_extension('photo.JPG') === 'jpg', 'a JPEG extension is recognized');
+check(upload_extension('report.exe') === null, 'an executable extension is rejected');
+check(upload_extension('notes/secret.php.jpg') === 'jpg', 'only the final extension is used');
+check(upload_accept('photo.jpg', $jpeg)['name'] === 'photo.jpg', 'a JPEG is accepted');
+check(upload_accept('photo.jpg', $png) === null, 'a PNG renamed to JPEG is rejected');
+check(upload_accept('note.txt', "hello\n")['extension'] === 'txt', 'plain text is accepted');
+check(upload_accept('note.txt', "hel\0lo") === null, 'text with a null byte is rejected');
+check(upload_accept('page.php', "<?php echo 1;") === null, 'PHP source is rejected');
+check(upload_folder_name('  Plans  ') === 'Plans', 'a folder name is trimmed');
+check(upload_folder_name('a/b') === null, 'a folder name cannot contain a slash');
+check(upload_folder_name('..') === null, 'a folder name cannot be a parent path');
+$parents = [1 => 0, 2 => 1, 3 => 2, 4 => 3, 5 => 4, 6 => 5];
+check(upload_folder_depth(0, $parents) === 1, 'a root folder is the first level');
+check(upload_folder_depth(5, $parents) === 6, 'the sixth folder level is still allowed');
+check(upload_folder_depth(6, $parents) === 7, 'a deeper folder is past the limit');
+check(upload_folder_move_cycles(2, 4, $parents) === true, 'moving a folder into its descendant is a cycle');
+check(upload_folder_move_cycles(4, 1, $parents) === false, 'moving a folder toward the root is allowed');
+$tree = upload_tree_html([
+    ['id' => 1, 'parent_id' => null, 'name' => 'A & B'],
+    ['id' => 2, 'parent_id' => 1, 'name' => 'Child'],
+], null, 2);
+check(strpos($tree, 'A &amp; B') !== false && strpos($tree, 'data-folder-id="2"') !== false, 'the folder tree escapes names and nests children');
+check(strpos($tree, 'is-active') !== false, 'the open folder is marked');
+check(upload_size_label(1536) === '1.5 KB', 'file sizes are shown in kilobytes');
 
 if ($failures > 0) {
     fwrite(STDERR, "{$failures} failed\n");

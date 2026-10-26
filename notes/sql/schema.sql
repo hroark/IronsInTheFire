@@ -82,6 +82,29 @@ CREATE TABLE IF NOT EXISTS journal_seal (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS upload_folders (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  parent_id INT UNSIGNED NULL,
+  name VARCHAR(120) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_upload_folders_parent (parent_id, name),
+  CONSTRAINT fk_upload_folders_parent FOREIGN KEY (parent_id) REFERENCES upload_folders (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS uploads (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  folder_id INT UNSIGNED NULL,
+  original_name VARCHAR(180) NOT NULL,
+  stored_name VARCHAR(80) NOT NULL,
+  mime VARCHAR(160) NOT NULL,
+  byte_size INT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_uploads_folder (folder_id, created_at),
+  CONSTRAINT fk_uploads_folder FOREIGN KEY (folder_id) REFERENCES upload_folders (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS journal_entries (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   iv VARCHAR(255) NOT NULL,

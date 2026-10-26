@@ -129,6 +129,21 @@ function handle_post(string $action): void
         case 'delete-notebook':
             delete_notebook_action();
             break;
+        case 'create-folder':
+            create_folder_action();
+            break;
+        case 'delete-folder':
+            delete_folder_action();
+            break;
+        case 'upload-files':
+            upload_files_action();
+            break;
+        case 'move-file':
+            move_file_action();
+            break;
+        case 'delete-file':
+            delete_file_action();
+            break;
         case 'journal-seal':
             journal_seal_action();
             break;
@@ -325,6 +340,173 @@ function delete_link_action(): void
     link_delete(db(), $id);
     flash('Link deleted.');
     redirect_to('view=links');
+}
+
+function files_return(?int $folderId): string
+{
+    return $folderId !== null && $folderId > 0 ? 'view=files&folder=' . $folderId : 'view=files';
+}
+
+function create_folder_action(): void
+{
+    $parent = (int) ($_POST['folder_id'] ?? 0);
+    $parentId = $parent > 0 ? $parent : null;
+    $name = upload_folder_name((string) ($_POST['name'] ?? ''));
+    $return = files_return($parentId);
+    if ($name === null) {
+        flash('Enter a folder name without slashes.', 'error');
+        redirect_to($return);
+    }
+    if ($parentId !== null && !upload_folder_find(db(), $parentId)) {
+        flash('That folder is not available.', 'error');
+        redirect_to('view=files');
+    }
+    $parents = upload_parent_map(upload_folders_all(db()));
+    if ($parentId !== null && upload_folder_depth($parentId, $parents) > upload_max_folder_depth()) {
+        flash('That folder is nested too deeply.', 'error');
+        redirect_to($return);
+    }
+    if (upload_folder_name_taken(db(), $parentId, $name)) {
+        flash('A folder with that name is already here.', 'error');
+        redirect_to($return);
+    }
+    $id = upload_folder_create(db(), $parentId, $name);
+    flash('Folder created.');
+    redirect_to(files_return($id));
+}
+
+function delete_folder_action(): void
+{
+    $id = (int) ($_POST['id'] ?? 0);
+    $folder = upload_folder_find(db(), $id);
+    if (!$folder) {
+        flash('That folder is not available.', 'error');
+        redirect_to('view=files');
+    }
+    $counts = upload_folder_counts(db(), $id);
+    if ($counts['files'] > 0 || $counts['folders'] > 0) {
+        flash('Move or delete the files and folders inside this folder first.', 'error');
+        redirect_to(files_return($id));
+    }
+    upload_folder_delete(db(), $id);
+    flash('Folder deleted.');
+    redirect_to(files_return($folder['parent_id']));
+}
+
+function upload_files_action(): void
+{
+    $postedFolder = (int) ($_POST['folder_id'] ?? 0);
+    $folderId = null;
+    if ($postedFolder > 0) {
+        if (!upload_folder_find(db(), $postedFolder)) {
+            flash('That folder is not available.', 'error');
+            redirect_to('view=files');
+        }
+        $folderId = $postedFolder;
+    }
+    $incoming = uploaded_file_list('files');
+    if (!$incoming) {
+        flash('Choose a file to upload.', 'error');
+        redirect_to(files_return($folderId));
+    }
+    if (count($incoming) > 10) {
+        flash('Upload up to 10 files at a time.', 'error');
+        redirect_to(files_return($folderId));
+    }
+    $saved = 0;
+    $skipped = [];
+    foreach ($incoming as $file) {
+        $label = upload_safe_name((string) $file['name']);
+        if ((int) $file['error'] !== UPLOAD_ERR_OK || (int) $file['size'] < 1 || (int) $file['size'] > upload_max_bytes()) {
+            $skipped[] = $label;
+            continue;
+        }
+        $tmp = (string) $file['tmp_name'];
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            $skipped[] = $label;
+            continue;
+        }
+        $bytes = file_get_contents($tmp);
+        $accepted = is_string($bytes) ? upload_accept((string) $file['name'], $bytes) : null;
+        if ($accepted === null) {
+            $skipped[] = $label;
+            continue;
+        }
+        $stored = upload_write_stored($bytes, $accepted['extension']);
+        if ($stored === null) {
+            $skipped[] = $label;
+            continue;
+        }
+        try {
+            upload_insert(db(), $folderId, $accepted['name'], $stored, $accepted['mime'], strlen($bytes));
+            $saved++;
+        } catch (Throwable $e) {
+            upload_delete_stored($stored);
+            throw $e;
+        }
+    }
+    if ($saved === 0) {
+        flash('None of those files could be saved. Use an image, PDF, text, zip, or Office file under 8 MB.', 'error');
+    } elseif ($skipped) {
+        flash('Saved ' . $saved . ' ' . ($saved === 1 ? 'file' : 'files') . '. Skipped ' . implode(', ', $skipped) . '.');
+    } else {
+        flash('Saved ' . $saved . ' ' . ($saved === 1 ? 'file' : 'files') . '.');
+    }
+    redirect_to(files_return($folderId));
+}
+
+function move_file_action(): void
+{
+    $id = (int) ($_POST['id'] ?? 0);
+    $file = upload_find(db(), $id);
+    if (!$file) {
+        flash('That file is not available.', 'error');
+        redirect_to('view=files');
+    }
+    $folderId = (int) ($_POST['folder_id'] ?? 0);
+    $target = null;
+    if ($folderId > 0) {
+        if (!upload_folder_find(db(), $folderId)) {
+            flash('That folder is not available.', 'error');
+            redirect_to(files_return($file['folder_id']));
+        }
+        $target = $folderId;
+    }
+    upload_move(db(), $id, $target);
+    flash('File moved.');
+    redirect_to(files_return($target));
+}
+
+function delete_file_action(): void
+{
+    $id = (int) ($_POST['id'] ?? 0);
+    $file = upload_find(db(), $id);
+    if (!$file) {
+        flash('That file is not available.', 'error');
+        redirect_to('view=files');
+    }
+    upload_delete_stored($file['stored_name']);
+    upload_delete(db(), $id);
+    flash('File deleted.');
+    redirect_to(files_return($file['folder_id']));
+}
+
+function file_download_action(int $id): void
+{
+    $file = upload_find(db(), $id);
+    $path = $file ? upload_file_path($file['stored_name']) : null;
+    if ($file === null || $path === null) {
+        http_response_code(404);
+        exit;
+    }
+    $download = (string) ($_GET['download'] ?? '') === '1' || !$file['image'];
+    $disposition = $download ? 'attachment' : 'inline';
+    header('Content-Type: ' . upload_content_type($file['extension']));
+    header('Content-Length: ' . (string) filesize($path));
+    header('Content-Disposition: ' . $disposition . '; filename="' . upload_download_name($file['original_name']) . '"');
+    header('X-Content-Type-Options: nosniff');
+    readfile($path);
+    exit;
 }
 
 function github_title_action(): void

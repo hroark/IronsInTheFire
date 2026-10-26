@@ -168,6 +168,30 @@ function render_current_view(): void
         return;
     }
 
+    if ($view === 'files') {
+        $folderId = (int) ($_GET['folder'] ?? 0);
+        $folder = null;
+        if ($folderId > 0) {
+            $folder = upload_folder_find($pdo, $folderId);
+            if (!$folder) {
+                flash('That folder is not available.', 'error');
+                redirect_to('view=files');
+            }
+        }
+        $folders = upload_folders_all($pdo);
+        $active['view'] = 'files';
+        render_app('files', [
+            'pageTitle' => $folder ? $folder['name'] : 'Files',
+            'folders' => $folders,
+            'folder' => $folder,
+            'childFolders' => upload_child_folders($folders, $folder ? $folder['id'] : null),
+            'files' => uploads_in_folder($pdo, $folder ? $folder['id'] : null),
+            'breadcrumbs' => upload_breadcrumbs($folders, $folder ? $folder['id'] : null),
+            'active' => $active,
+        ]);
+        return;
+    }
+
     if ($view === 'search') {
         $query = trim((string) ($_GET['q'] ?? ''));
         $query = limit_text($query, 100);

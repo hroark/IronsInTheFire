@@ -5,6 +5,7 @@ require_once __DIR__ . '/guard.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/tags.php';
 require_once __DIR__ . '/tasks.php';
+require_once __DIR__ . '/snapshot.php';
 refuse_direct_access(__FILE__);
 
 function notebooks_all(PDO $pdo): array
@@ -217,8 +218,15 @@ function map_note(array $row): array
     ];
 }
 
+function link_select_columns(): string
+{
+    return 'l.id, l.notebook_id, nb.name AS notebook, l.url, l.title, l.note, l.page_title, l.page_description, l.site_name, l.snapshot_text, l.preview_path, l.http_status, l.link_state, l.checked_at, l.captured_at, l.created_at';
+}
+
 function map_link(array $row): array
 {
+    $preview = $row['preview_path'] ?? null;
+    $status = $row['http_status'] ?? null;
     return [
         'id' => (int) $row['id'],
         'notebook_id' => (int) $row['notebook_id'],
@@ -226,6 +234,15 @@ function map_link(array $row): array
         'url' => $row['url'],
         'title' => $row['title'],
         'note' => $row['note'],
+        'page_title' => (string) ($row['page_title'] ?? ''),
+        'page_description' => (string) ($row['page_description'] ?? ''),
+        'site_name' => (string) ($row['site_name'] ?? ''),
+        'snapshot_text' => (string) ($row['snapshot_text'] ?? ''),
+        'preview_path' => is_string($preview) && $preview !== '' ? $preview : null,
+        'http_status' => $status === null || $status === '' ? null : (int) $status,
+        'link_state' => (string) ($row['link_state'] ?? 'unknown'),
+        'checked_at' => $row['checked_at'] ?? null,
+        'captured_at' => $row['captured_at'] ?? null,
         'created_at' => $row['created_at'],
         'tags' => [],
     ];
@@ -357,7 +374,7 @@ function search_notes(PDO $pdo, string $query): array
 function search_links(PDO $pdo, string $query): array
 {
     $like = like_contains($query);
-    $sql = 'SELECT DISTINCT l.id, l.notebook_id, nb.name AS notebook, l.url, l.title, l.note, l.created_at
+    $sql = 'SELECT DISTINCT ' . link_select_columns() . '
             FROM links l
             JOIN notebooks nb ON nb.id = l.notebook_id
             LEFT JOIN link_tags lt ON lt.link_id = l.id
@@ -379,7 +396,7 @@ function search_links(PDO $pdo, string $query): array
 
 function links_list(PDO $pdo, ?int $tagId): array
 {
-    $sql = 'SELECT l.id, l.notebook_id, nb.name AS notebook, l.url, l.title, l.note, l.created_at
+    $sql = 'SELECT ' . link_select_columns() . '
             FROM links l
             JOIN notebooks nb ON nb.id = l.notebook_id';
     $params = [];
@@ -396,7 +413,7 @@ function links_list(PDO $pdo, ?int $tagId): array
 function link_find(PDO $pdo, int $id): ?array
 {
     $stmt = $pdo->prepare(
-        'SELECT l.id, l.notebook_id, nb.name AS notebook, l.url, l.title, l.note, l.created_at
+        'SELECT ' . link_select_columns() . '
          FROM links l
          JOIN notebooks nb ON nb.id = l.notebook_id
          WHERE l.id = ?'
@@ -435,6 +452,60 @@ function link_save(PDO $pdo, int $id, int $notebookId, string $url, string $titl
         }
         throw $e;
     }
+}
+
+function link_set_check(PDO $pdo, int $id, string $state, ?int $status): void
+{
+    $stmt = $pdo->prepare('UPDATE links SET link_state = ?, http_status = ?, checked_at = NOW() WHERE id = ?');
+    $stmt->bindValue(1, snapshot_known_state($state));
+    if ($status === null) {
+        $stmt->bindValue(2, null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(2, $status, PDO::PARAM_INT);
+    }
+    $stmt->bindValue(3, $id, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
+function link_set_snapshot(PDO $pdo, int $id, array $capture, ?string $previewPath): void
+{
+    $stmt = $pdo->prepare(
+        'UPDATE links
+         SET page_title = ?, page_description = ?, site_name = ?, snapshot_text = ?, preview_path = ?,
+             http_status = ?, link_state = ?, checked_at = NOW(), captured_at = NOW()
+         WHERE id = ?'
+    );
+    $stmt->bindValue(1, (string) ($capture['title'] ?? ''));
+    $stmt->bindValue(2, (string) ($capture['description'] ?? ''));
+    $stmt->bindValue(3, (string) ($capture['site_name'] ?? ''));
+    $stmt->bindValue(4, (string) ($capture['text'] ?? ''));
+    if ($previewPath === null) {
+        $stmt->bindValue(5, null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(5, $previewPath);
+    }
+    if (!isset($capture['status']) || $capture['status'] === null) {
+        $stmt->bindValue(6, null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(6, (int) $capture['status'], PDO::PARAM_INT);
+    }
+    $stmt->bindValue(7, snapshot_known_state((string) ($capture['state'] ?? '')));
+    $stmt->bindValue(8, $id, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
+function links_needing_check(PDO $pdo, int $limit): array
+{
+    $limit = max(1, min(10, $limit));
+    $stmt = $pdo->query(
+        'SELECT id, url FROM links ORDER BY checked_at IS NULL DESC, checked_at ASC, id ASC LIMIT ' . $limit
+    );
+    return $stmt ? $stmt->fetchAll() : [];
+}
+
+function links_unchecked_count(PDO $pdo): int
+{
+    return (int) $pdo->query('SELECT COUNT(*) FROM links WHERE checked_at IS NULL')->fetchColumn();
 }
 
 function link_delete(PDO $pdo, int $id): void
@@ -482,7 +553,7 @@ function export_bundle(PDO $pdo): array
          ORDER BY nb.sort_order, n.title'
     );
     $linkStmt = $pdo->query(
-        'SELECT l.id, l.notebook_id, nb.name AS notebook, l.url, l.title, l.note, l.created_at
+        'SELECT ' . link_select_columns() . '
          FROM links l
          JOIN notebooks nb ON nb.id = l.notebook_id
          ORDER BY l.created_at, l.id'

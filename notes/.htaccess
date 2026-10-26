@@ -1,6 +1,11 @@
 Options -Indexes
 DirectoryIndex index.php
 
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^snapshots(/|$) - [F,L]
+</IfModule>
+
 <FilesMatch "^(config\.php|config\.example\.php|php\.config)$">
   <IfModule mod_authz_core.c>
     Require all denied

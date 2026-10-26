@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/guard.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/snapshot.php';
 refuse_direct_access(__FILE__);
 
 function yaml_quote(string $value): string
@@ -47,6 +48,14 @@ function links_to_markdown(array $links): string
         $tags = $link['tags'] ?? [];
         $lines[] = '- Tags: ' . ($tags ? implode(', ', $tags) : 'none');
         $lines[] = '- Saved: ' . (string) $link['created_at'];
+        $description = trim(str_replace(["\r", "\n"], ' ', (string) ($link['page_description'] ?? '')));
+        if ($description !== '') {
+            $lines[] = '- Description: ' . $description;
+        }
+        $status = snapshot_state_label((string) ($link['link_state'] ?? ''));
+        if ($status !== '') {
+            $lines[] = '- Status: ' . $status;
+        }
         $note = trim(normalize_newlines((string) ($link['note'] ?? '')));
         if ($note !== '') {
             $lines[] = '';

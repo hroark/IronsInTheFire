@@ -104,6 +104,10 @@ function dispatch_notes(): void
         journal_data_action();
         return;
     }
+    if ($action === 'link-image') {
+        link_image_action((int) ($_GET['id'] ?? 0));
+        return;
+    }
 
     render_current_view();
 }

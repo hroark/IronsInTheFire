@@ -7,8 +7,13 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
 <div class="notes-heading">
     <div>
         <h1><?= !empty($link['id']) ? 'Edit link' : 'Links' ?></h1>
-        <p>Save a URL with a short note. A public GitHub URL can fill in the title.</p>
+        <p>Save a URL with a short note. The page title, description, preview image, and a text copy are kept so you can still read it if the site goes offline.</p>
     </div>
+    <form method="post" action="index.php">
+        <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+        <input type="hidden" name="action" value="check-links">
+        <button class="btn btn-brand-soft" type="submit">Check links</button>
+    </form>
 </div>
 
 <form method="post" action="index.php" class="notes-card notes-link-form">
@@ -18,7 +23,7 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
     <label for="link-url">URL</label>
     <input id="link-url" class="form-control" type="url" name="url" maxlength="2048" value="<?= e($link['url'] ?? '') ?>" placeholder="https://" required>
     <label for="link-title">Title</label>
-    <input id="link-title" class="form-control" type="text" name="title" maxlength="255" value="<?= e($link['title'] ?? '') ?>" placeholder="Filled from GitHub when this is empty">
+    <input id="link-title" class="form-control" type="text" name="title" maxlength="255" value="<?= e($link['title'] ?? '') ?>" placeholder="Filled from the page when this is empty">
     <div class="notes-editor-row">
         <div>
             <label for="link-notebook">Notebook</label>
@@ -48,33 +53,6 @@ if (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) 
         <p class="notes-empty">No links saved yet.</p>
     <?php endif; ?>
     <?php foreach ($links as $item): ?>
-        <article class="notes-card">
-            <div class="notes-card-top">
-                <div>
-                    <h2 class="notes-card-title"><a href="<?= e($item['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e($item['title']) ?></a></h2>
-                    <p class="notes-meta"><?= e($item['notebook']) ?> · Saved <?= e(format_time($item['created_at'])) ?></p>
-                    <p class="notes-url"><?= e($item['url']) ?></p>
-                </div>
-                <div class="notes-card-actions">
-                    <a class="btn btn-brand-soft" href="index.php?view=links&edit=<?= (int) $item['id'] ?>">Edit</a>
-                    <form method="post" action="index.php" data-confirm="Delete this link?">
-                        <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
-                        <input type="hidden" name="action" value="delete-link">
-                        <input type="hidden" name="id" value="<?= (int) $item['id'] ?>">
-                        <button class="btn btn-brand-outline" type="submit">Delete</button>
-                    </form>
-                </div>
-            </div>
-            <?php if (!empty($item['tags'])): ?>
-                <div class="tag-list notes-tags">
-                    <?php foreach ($item['tags'] as $tagName): ?>
-                        <span class="tag-chip"><?= e($tagName) ?></span>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-            <?php if (trim((string) $item['note']) !== ''): ?>
-                <p class="notes-excerpt"><?= e($item['note']) ?></p>
-            <?php endif; ?>
-        </article>
+        <?php include __DIR__ . '/link_card.php'; ?>
     <?php endforeach; ?>
 </div>

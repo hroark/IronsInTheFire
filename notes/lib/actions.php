@@ -114,6 +114,15 @@ function handle_post(string $action): void
         case 'delete-link':
             delete_link_action();
             break;
+        case 'refresh-link':
+            refresh_link_action();
+            break;
+        case 'check-link':
+            check_link_action();
+            break;
+        case 'check-links':
+            check_links_action();
+            break;
         case 'github-title':
             github_title_action();
             break;
@@ -287,14 +296,6 @@ function save_link_action(): void
         flash('Enter a full http or https URL.', 'error');
         redirect_to($return);
     }
-    if ($title === '') {
-        $title = github_title($url) ?? '';
-        $draft['title'] = $title;
-    }
-    if ($title === '') {
-        $title = $url;
-    }
-    $title = limit_text($title, 255);
     if (strlen($note) > 10000) {
         put_draft('link', $draft);
         flash('The link note is too long.', 'error');
@@ -305,26 +306,152 @@ function save_link_action(): void
         flash('Choose a notebook.', 'error');
         redirect_to($return);
     }
+    $existing = $id > 0 ? link_find(db(), $id) : null;
+    $capture = snapshot_capture($url);
+    if ($title === '') {
+        $title = github_title($url) ?? '';
+    }
+    if ($title === '') {
+        $title = $capture['title'] !== '' ? $capture['title'] : $url;
+    }
+    $draft['title'] = $title;
+    $title = limit_text($title, 255);
 
     $savedId = link_save(db(), $id, $notebookId, $url, $title, $note, $tags);
     if ($savedId < 1) {
         flash('That link is not available.', 'error');
         redirect_to('view=links');
     }
+    remember_link_capture($savedId, $capture, $existing, $url);
     flash('Link saved.');
     redirect_to('view=links');
+}
+
+function link_return_query(): string
+{
+    return safe_query((string) ($_POST['return'] ?? ''), 'view=links');
+}
+
+function remember_link_capture(int $id, array $capture, ?array $previous, string $url): void
+{
+    $previousText = (string) ($previous['snapshot_text'] ?? '');
+    $preview = $previous['preview_path'] ?? null;
+    $preview = is_string($preview) && $preview !== '' ? $preview : null;
+    if (!snapshot_replaces_body((string) $capture['state'], $previousText)) {
+        link_set_check(db(), $id, (string) $capture['state'], $capture['status'] ?? null);
+        return;
+    }
+    $urlChanged = $previous !== null && (string) $previous['url'] !== $url;
+    if ($capture['state'] === 'up' && $capture['image_extension'] !== null && $capture['image_bytes'] !== '') {
+        $stored = snapshot_store_image($id, (string) $capture['image_bytes'], (string) $capture['image_extension'], $preview);
+        if ($stored !== null) {
+            $preview = $stored;
+        }
+    } elseif ($capture['state'] === 'up' || $urlChanged) {
+        snapshot_delete_file($preview);
+        $preview = null;
+    }
+    link_set_snapshot(db(), $id, $capture, $preview);
+}
+
+function refresh_link_action(): void
+{
+    $id = (int) ($_POST['id'] ?? 0);
+    $return = link_return_query();
+    $link = link_find(db(), $id);
+    if (!$link) {
+        flash('That link is not available.', 'error');
+        redirect_to($return);
+    }
+    $capture = snapshot_capture((string) $link['url']);
+    $kept = !snapshot_replaces_body((string) $capture['state'], (string) $link['snapshot_text']);
+    remember_link_capture($id, $capture, $link, (string) $link['url']);
+    if ($capture['state'] === 'missing') {
+        flash($kept ? 'That page looks gone. The last saved copy was kept.' : 'That page looks gone.');
+    } elseif ($capture['state'] === 'unreachable') {
+        flash($kept ? 'The page could not be reached. The last saved copy was kept.' : 'The page could not be reached.');
+    } elseif ($capture['state'] === 'blocked') {
+        flash($kept ? 'That page asks for a sign-in. The last saved copy was kept.' : 'That page asks for a sign-in.');
+    } else {
+        flash('Snapshot refreshed.');
+    }
+    redirect_to($return);
+}
+
+function check_link_action(): void
+{
+    $id = (int) ($_POST['id'] ?? 0);
+    $return = link_return_query();
+    $link = link_find(db(), $id);
+    if (!$link) {
+        flash('That link is not available.', 'error');
+        redirect_to($return);
+    }
+    $probe = snapshot_probe((string) $link['url']);
+    link_set_check(db(), $id, $probe['state'], $probe['status']);
+    if ($probe['state'] === 'missing') {
+        flash('That page looks gone.');
+    } elseif ($probe['state'] === 'unreachable') {
+        flash('That page could not be reached.');
+    } elseif ($probe['state'] === 'blocked') {
+        flash('That page asks for a sign-in. It is still listed as available.');
+    } else {
+        flash('That page is still there.');
+    }
+    redirect_to($return);
+}
+
+function check_links_action(): void
+{
+    set_time_limit(90);
+    $rows = links_needing_check(db(), 10);
+    foreach ($rows as $row) {
+        $probe = snapshot_probe((string) $row['url']);
+        link_set_check(db(), (int) $row['id'], $probe['state'], $probe['status']);
+    }
+    $count = count($rows);
+    $remaining = links_unchecked_count(db());
+    if ($count === 0) {
+        flash('There are no links to check.');
+    } elseif ($remaining > 0) {
+        $checkedLabel = $count === 1 ? '1 link' : $count . ' links';
+        $remainLabel = $remaining === 1 ? '1 still needs a check.' : $remaining . ' still need a check.';
+        flash('Checked ' . $checkedLabel . '. ' . $remainLabel);
+    } else {
+        flash($count === 1 ? 'Checked 1 link.' : 'Checked ' . $count . ' links.');
+    }
+    redirect_to('view=links');
+}
+
+function link_image_action(int $id): void
+{
+    $link = link_find(db(), $id);
+    $name = is_array($link) ? (string) ($link['preview_path'] ?? '') : '';
+    $path = snapshot_file_path($name);
+    $type = snapshot_image_type($name);
+    if ($path === null || $type === null) {
+        http_response_code(404);
+        exit;
+    }
+    header('Content-Type: ' . $type);
+    header('Content-Length: ' . (string) filesize($path));
+    readfile($path);
+    exit;
 }
 
 function delete_link_action(): void
 {
     $id = (int) ($_POST['id'] ?? 0);
-    if (!link_find(db(), $id)) {
+    $return = link_return_query();
+    $link = link_find(db(), $id);
+    if (!$link) {
         flash('That link is not available.', 'error');
-        redirect_to('view=links');
+        redirect_to($return);
     }
+    snapshot_delete_file($link['preview_path'] ?? null);
     link_delete(db(), $id);
     flash('Link deleted.');
-    redirect_to('view=links');
+    redirect_to($return);
 }
 
 function github_title_action(): void

@@ -154,6 +154,75 @@ check(notebook_id_order([1, 2], [1]) === null, 'notebook order rejects a missing
 check(notebook_id_order([1, 2], [1, 2, 9]) === null, 'notebook order rejects an unknown folder');
 check(notebook_id_order([1, 2], [1, 1]) === null, 'notebook order rejects a repeated folder');
 
+check(snapshot_classify_status(200) === 'up', 'a successful response is up');
+check(snapshot_classify_status(302) === 'up', 'a redirect is up');
+check(snapshot_classify_status(404) === 'missing', '404 means the page is gone');
+check(snapshot_classify_status(410) === 'missing', '410 means the page is gone');
+check(snapshot_classify_status(401) === 'blocked', '401 is a sign-in wall');
+check(snapshot_classify_status(403) === 'blocked', '403 is a sign-in wall');
+check(snapshot_classify_status(500) === 'unreachable', 'a server error is unreachable');
+check(snapshot_classify_status(null) === 'unreachable', 'a missing status is unreachable');
+check(snapshot_classify_status(0) === 'unreachable', 'a zero status is unreachable');
+
+check(snapshot_ip_is_private('127.0.0.1') === true, 'loopback is private');
+check(snapshot_ip_is_private('10.1.2.3') === true, '10.0.0.0/8 is private');
+check(snapshot_ip_is_private('172.16.0.1') === true, '172.16.0.0/12 is private');
+check(snapshot_ip_is_private('192.168.1.20') === true, '192.168.0.0/16 is private');
+check(snapshot_ip_is_private('169.254.169.254') === true, 'the link-local metadata address is private');
+check(snapshot_ip_is_private('100.64.1.1') === true, 'carrier-grade NAT is private');
+check(snapshot_ip_is_private('::1') === true, 'IPv6 loopback is private');
+check(snapshot_ip_is_private('fe80::1') === true, 'IPv6 link-local is private');
+check(snapshot_ip_is_private('::ffff:127.0.0.1') === true, 'an IPv4-mapped loopback address is private');
+check(snapshot_ip_is_private('8.8.8.8') === false, 'a public IPv4 address is allowed');
+check(snapshot_ip_is_private('::ffff:8.8.8.8') === false, 'an IPv4-mapped public address is allowed');
+check(snapshot_url_is_allowed('http://127.0.0.1/') === false, 'a loopback URL is refused');
+check(snapshot_url_is_allowed('http://169.254.169.254/latest/meta-data') === false, 'a metadata URL is refused');
+check(snapshot_url_is_allowed('https://localhost/notes') === false, 'localhost is refused');
+check(snapshot_url_is_allowed('http://10.0.0.8/a') === false, 'a private-network URL is refused');
+check(snapshot_url_is_allowed('http://user:secret@example.com/') === false, 'a URL with a password is refused');
+check(snapshot_url_is_allowed('javascript:alert(1)') === false, 'a javascript URL is refused');
+check(snapshot_url_is_allowed('https://8.8.8.8/dns') === true, 'a public IP URL is allowed');
+
+$html = '<html><head><title>Document title</title>'
+    . '<meta name="description" content="Plain description">'
+    . '<meta property="og:title" content="Open title">'
+    . '<meta property="og:description" content="Open description">'
+    . '<meta property="og:site_name" content="Example">'
+    . '<meta property="og:image" content="/cover.jpg">'
+    . '</head><body><script>secret()</script><style>.x{}</style><p>Visible words</p></body></html>';
+$meta = snapshot_meta($html, 'https://example.com/posts/1');
+check($meta['title'] === 'Open title', 'the Open Graph title wins over the document title');
+check($meta['description'] === 'Open description', 'the Open Graph description wins over the name description');
+check($meta['site_name'] === 'Example', 'the site name is read');
+check($meta['image_url'] === 'https://example.com/cover.jpg', 'a root-relative preview image is resolved');
+check($meta['text'] === 'Visible words', 'scripts and styles are left out of the saved text');
+$named = snapshot_meta('<html><head><title>Only title</title><meta name="description" content="Named"></head><body><p>Body</p></body></html>', 'https://example.com/');
+check($named['title'] === 'Only title' && $named['description'] === 'Named', 'a page without Open Graph tags uses the title and description');
+check(snapshot_resolve_url('https://example.com/dir/page', 'pic.png') === 'https://example.com/dir/pic.png', 'a relative image URL stays in its directory');
+check(snapshot_resolve_url('https://example.com/dir/page', '../pic.png') === 'https://example.com/pic.png', 'a parent-relative image URL is normalized');
+check(snapshot_resolve_url('https://example.com/dir/page', '//cdn.example.com/a.jpg') === 'https://cdn.example.com/a.jpg', 'a protocol-relative image URL keeps the page scheme');
+check(snapshot_resolve_url('https://example.com/', 'javascript:alert(1)') === null, 'a javascript image URL is dropped');
+$longText = snapshot_clean_text(str_repeat('a', 50000));
+$longLength = function_exists('mb_strlen') ? mb_strlen($longText, 'UTF-8') : strlen($longText);
+check($longLength === 40000, 'saved page text stops at 40000 characters');
+check(snapshot_replaces_body('up', 'Already saved') === true, 'a live page replaces the saved copy');
+check(snapshot_replaces_body('missing', 'Already saved') === false, 'a missing page keeps the saved copy');
+check(snapshot_replaces_body('unreachable', '') === true, 'the first capture stores whatever came back');
+check(snapshot_image_extension("\xFF\xD8\xFF\x00") === 'jpg', 'a JPEG preview is recognized');
+check(snapshot_image_extension('<html>') === null, 'HTML is not stored as a preview image');
+$statusMarkdown = links_to_markdown([
+    [
+        'title' => 'Example',
+        'url' => 'https://example.com',
+        'tags' => [],
+        'created_at' => '2026-01-04 00:00:00',
+        'note' => '',
+        'page_description' => 'A page',
+        'link_state' => 'missing',
+    ],
+]);
+check(strpos($statusMarkdown, 'Description: A page') !== false && strpos($statusMarkdown, 'Status: Gone') !== false, 'links.md includes the description and the last status');
+
 if ($failures > 0) {
     fwrite(STDERR, "{$failures} failed\n");
     exit(1);
